@@ -6,7 +6,7 @@ import (
 )
 
 type Acknowledgement struct {
-	AlarmID        uuid.UUID // Alarm ID
-	AcknowledgedBy string	 // Who Acknowledged
-	AcknowledgedAt time.Time // When Alarm was Acknowledged
+	AlarmID        uuid.UUID `json:"alarmId"`        // Alarm ID
+	AcknowledgedBy string    `json:"acknowledgedBy"` // Who Acknowledged
+	AcknowledgedAt time.Time `json:"acknowledgedAt"` // When Alarm was Acknowledged
 }
