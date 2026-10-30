@@ -44,7 +44,7 @@ const (
 type ClearReason string
 
 const (
-	ClearReasonRuleUpdated  ClearReason = "ruleUpdated"
+	ClearReasonRuleNormal   ClearReason = ""
 	ClearReasonRuleDisabled ClearReason = "ruleDisabled"
 	ClearReasonRuleDeleted  ClearReason = "ruleDeleted"
 )

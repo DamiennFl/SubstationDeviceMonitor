@@ -49,14 +49,14 @@ type UpdateRuleInput struct {
 // ReadingInput contains a reading submitted for the device in the URL path.
 type ReadingInput struct {
 	Timestamp     time.Time `json:"timestamp"`
-	CurrentA      float64   `json:"currentA"`
-	CurrentB      float64   `json:"currentB"`
-	CurrentC      float64   `json:"currentC"`
-	VoltageA      float64   `json:"voltageA"`
-	VoltageB      float64   `json:"voltageB"`
-	VoltageC      float64   `json:"voltageC"`
-	Frequency     float64   `json:"frequency"`
-	RealPower     float64   `json:"realPower"`
-	ReactivePower float64   `json:"reactivePower"`
-	BreakerStatus State     `json:"breakerStatus"`
+	CurrentA      *float64  `json:"currentA"`
+	CurrentB      *float64  `json:"currentB"`
+	CurrentC      *float64  `json:"currentC"`
+	VoltageA      *float64  `json:"voltageA"`
+	VoltageB      *float64  `json:"voltageB"`
+	VoltageC      *float64  `json:"voltageC"`
+	Frequency     *float64  `json:"frequency"`
+	RealPower     *float64  `json:"realPower"`
+	ReactivePower *float64  `json:"reactivePower"`
+	BreakerStatus *State    `json:"breakerStatus"`
 }
