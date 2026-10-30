@@ -15,8 +15,8 @@ type CreateDeviceInput struct {
 
 // UpdateDeviceInput contains optional fields accepted when updating a device.
 type UpdateDeviceInput struct {
-	Name *string `json:"name,omitempty"`
-	IP   *string `json:"ip,omitempty"`
+	Name *string `json:"name"`
+	IP   *string `json:"ip"`
 }
 
 // CreateRuleInput contains fields accepted when creating a rule.
@@ -25,25 +25,25 @@ type CreateRuleInput struct {
 	Enabled     *bool       `json:"enabled"`
 	Type        RuleType    `json:"type"`
 	Measurement Measurement `json:"measurement"`
-	Comparison  *Comparison `json:"comparison,omitempty"`
-	Limit       *float64    `json:"limit,omitempty"`
-	LowerLimit  *float64    `json:"lowerLimit,omitempty"`
-	UpperLimit  *float64    `json:"upperLimit,omitempty"`
-	Deadband    *float64    `json:"deadband,omitempty"`
-	TripState   *State      `json:"tripState,omitempty"`
+	Comparison  *Comparison `json:"comparison"`
+	Limit       *float64    `json:"limit"`
+	LowerLimit  *float64    `json:"lowerLimit"`
+	UpperLimit  *float64    `json:"upperLimit"`
+	Deadband    *float64    `json:"deadband"`
+	TripState   *State      `json:"tripState"`
 }
 
 // UpdateRuleInput contains optional fields accepted when updating a rule.
 type UpdateRuleInput struct {
-	Name        *string      `json:"name,omitempty"`
-	Enabled     *bool        `json:"enabled,omitempty"`
-	Measurement *Measurement `json:"measurement,omitempty"`
-	Comparison  *Comparison  `json:"comparison,omitempty"`
-	Limit       *float64     `json:"limit,omitempty"`
-	LowerLimit  *float64     `json:"lowerLimit,omitempty"`
-	UpperLimit  *float64     `json:"upperLimit,omitempty"`
-	Deadband    *float64     `json:"deadband,omitempty"`
-	TripState   *State       `json:"tripState,omitempty"`
+	Name        *string      `json:"name"`
+	Enabled     *bool        `json:"enabled"`
+	Measurement *Measurement `json:"measurement"`
+	Comparison  *Comparison  `json:"comparison"`
+	Limit       *float64     `json:"limit"`
+	LowerLimit  *float64     `json:"lowerLimit"`
+	UpperLimit  *float64     `json:"upperLimit"`
+	Deadband    *float64     `json:"deadband"`
+	TripState   *State       `json:"tripState"`
 }
 
 // ReadingInput contains a reading submitted for the device in the URL path.
