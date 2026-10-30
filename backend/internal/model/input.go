@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Use Structs for Input. When the client sends JSON, it needs something to decode it into, which is these creation structs.
@@ -23,9 +21,8 @@ type UpdateDeviceInput struct {
 
 // CreateRuleInput contains fields accepted when creating a rule.
 type CreateRuleInput struct {
-	DeviceID    uuid.UUID   `json:"deviceId"`
 	Name        string      `json:"name"`
-	Enabled     bool        `json:"enabled"`
+	Enabled     *bool       `json:"enabled"`
 	Type        RuleType    `json:"type"`
 	Measurement Measurement `json:"measurement"`
 	Comparison  *Comparison `json:"comparison,omitempty"`

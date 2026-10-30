@@ -72,6 +72,7 @@ Live Updates
  - Event timestamps come from devices, to ensure proper logging of events and alarms.
  - When a rule is modified, disabled, or deleted, any alarms currently triggered by those rules will clear with a message stating which occurred. If it cleared due to regular conditions, e.g. the relay reported normal values, no clear reason message will be displayed.
  - Deploy order matters if data models are updated in the package, since the API will have strict input checking. Update API first then simulator.
+ - When using pointers for input, a PATCH will never be able to clear a value like removing a deadband, since "not sent" and "send as null" both arrive as nil.
 
 ### Future improvements:
  - More SSE events (device created or deleted, alarm acknowledged)
