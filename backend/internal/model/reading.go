@@ -2,9 +2,11 @@ package model
 
 import (
 	"time"
+
 	"github.com/google/uuid"
 )
 
+// Reading contains a device measurement.
 type Reading struct {
 	DeviceID      uuid.UUID `json:"deviceId"`      // Device ID
 	Timestamp     time.Time `json:"timestamp"`     // Timestamp of Reading
@@ -17,5 +19,5 @@ type Reading struct {
 	Frequency     float64   `json:"frequency"`     // Frequency (Hz)
 	RealPower     float64   `json:"realPower"`     // Real Power (Kilowatts)
 	ReactivePower float64   `json:"reactivePower"` // Reactive Power (Kilovolt-Ampere Reactive)
-	BreakerStatus string    `json:"breakerStatus"` // Breaker Status (Open or Closed)
+	BreakerStatus State     `json:"breakerStatus"` // Breaker Status (Open or Closed)
 }

@@ -13,6 +13,6 @@ func health(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", health) // Only allow GET requests to /health
+	mux.HandleFunc("GET /health", health)        // Only allow GET requests to /health
 	log.Fatal(http.ListenAndServe(":8080", mux)) // TODO: Use Kubernetes environment variable port
 }

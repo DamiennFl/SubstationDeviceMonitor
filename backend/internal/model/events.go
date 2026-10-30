@@ -6,17 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type Event struct {
-	Reading           *Reading         `json:"reading,omitempty"`           // Reading Event
-	AlarmRaised       *Alarm           `json:"alarmRaised,omitempty"`       // Alarm Raised Event
-	AlarmCleared      *AlarmCleared    `json:"alarmCleared,omitempty"`      // Alarm Cleared Event
-	AlarmAcknowledged *Acknowledgement `json:"alarmAcknowledged,omitempty"` // Alarm Acknowledged Event
-}
-
+// AlarmCleared describes an alarm-cleared live event.
 type AlarmCleared struct {
-	ID          uuid.UUID `json:"id"`          // Alarm Cleared ID
-	RuleID      uuid.UUID `json:"ruleId"`      // Matching Rule ID
-	DeviceID    uuid.UUID `json:"deviceId"`    // Matching Device ID
-	ClearedAt   time.Time `json:"clearedAt"`   // When Alarm was cleared
-	ClearReason string    `json:"clearReason"` // Reason Alarm was Cleared
+	ID          uuid.UUID   `json:"id"`               // Alarm Cleared ID
+	RuleID      *uuid.UUID  `json:"ruleId,omitempty"` // Matching Rule ID
+	DeviceID    uuid.UUID   `json:"deviceId"`         // Matching Device ID
+	ClearedAt   time.Time   `json:"clearedAt"`        // When Alarm was cleared
+	ClearReason ClearReason `json:"clearReason"`      // Reason Alarm was Cleared
 }
