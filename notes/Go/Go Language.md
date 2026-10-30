@@ -373,3 +373,79 @@ type List[T any] struct {
 	val  T
 }
 ```
+
+## Concurrency
+
+Go has built in concurrency features as part of the core language.
+
+### Goroutines
+
+Lightweight thread managed by Go runtime. `go f(x, y, z)`. Start a new goroutine by running f(x, y, z). The eval of `f`, `x`, `y`, and `z` happens in this goroutine, and f is executed in the new goroutine.
+
+Goroutines run in the same address space, so access to shared memory must be synchronized. The `sync` package provides useful primitives.
+
+### Channels
+
+Channels are a typed conduit through which you can send and receive values with the channel operator `<-`. Data flows in the direction of the arrow. Channels must be made before use. `ch := make(chan int)`. By default, sends and receives block until the other side is ready. Allows goroutines to synchronize without explicit locks or condition variables. 
+```
+func sum(s []int, c chan int) {
+	sum := 0
+	for _, v := range s {
+		sum += v
+	}
+	c <- sum // send sum to c
+}
+
+func main() {
+	s := []int{7, 2, 8, -9, 4, 0}
+
+	c := make(chan int)
+	go sum(s[:len(s)/2], c)
+	go sum(s[len(s)/2:], c)
+	x, y := <-c, <-c // receive from c
+
+	fmt.Println(x, y, x+y)
+}
+```
+
+Channels can be buffered. Provide the buffer length as the second argument to `make` to initialize a buffered channel. Data is sent to the channel buffer, and blocks once the buffer is full. Receives block when the buffer is empty (no data to receive).
+
+A sender can close a channel to indicate no more values will be sent. `v, ok := <-ch` can be used to confirm the channel is closed. Only the sender should close a channel, never the receiver. Sending on a closed channel will cause a panic. Closing is not strictly necessary, rather should be used to tell receiver no more values are coming. 
+
+### Select
+
+`select` statement lets a goroutine wait on multiple communication operations. A `select` blocks until one of its cases can run, then executes that case. It chooses one at random if multiple are ready. 
+
+The default case runs if no other case is ready.
+
+### Mutex
+
+Go provides mutex with standard library, specifically with `Lock` and `Unlock` methods. 
+```
+// Inc increments the counter for the given key.
+func (c *SafeCounter) Inc(key string) {
+	c.mu.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	c.v[key]++
+	c.mu.Unlock()
+}
+
+// Value returns the current value of the counter for the given key.
+func (c *SafeCounter) Value(key string) int {
+	c.mu.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	defer c.mu.Unlock()
+	return c.v[key]
+}
+```
+
+### Struct tags
+
+Used to define how external libraries manipulate, serialize, or validate data.
+
+```
+type User struct {
+    ID    int    `json:"id" db:"user_id"`
+    Email string `json:"email,omitempty" validate:"required,email"`
+}
+```
