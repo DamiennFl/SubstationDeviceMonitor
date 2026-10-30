@@ -2,7 +2,7 @@ package model
 
 import (
 	"time"
-	"uuid"
+	"github.com/google/uuid"
 )
 
 type Event struct {
