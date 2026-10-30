@@ -7,7 +7,7 @@ import (
 )
 
 type Rule struct {
-	Id          uuid.UUID `json:"id"`                   // Rule ID
+	ID          uuid.UUID `json:"id"`                   // Rule ID
 	DeviceID    uuid.UUID `json:"deviceId"`             // Mapped Device ID
 	Name        string    `json:"name"`                 // Rule Name
 	Enabled     bool      `json:"enabled"`              // Is Rule Enabled

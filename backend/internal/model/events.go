@@ -2,6 +2,7 @@ package model
 
 import (
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -13,8 +14,9 @@ type Event struct {
 }
 
 type AlarmCleared struct {
-	Id        uuid.UUID `json:"id"`        // Alarm Cleared ID
-	RuleID    uuid.UUID `json:"ruleId"`    // Matching Rule ID
-	DeviceID  uuid.UUID `json:"deviceId"`  // Matching Device ID
-	ClearedAt time.Time `json:"clearedAt"` // When Alarm was cleared
+	ID          uuid.UUID `json:"id"`          // Alarm Cleared ID
+	RuleID      uuid.UUID `json:"ruleId"`      // Matching Rule ID
+	DeviceID    uuid.UUID `json:"deviceId"`    // Matching Device ID
+	ClearedAt   time.Time `json:"clearedAt"`   // When Alarm was cleared
+	ClearReason string    `json:"clearReason"` // Reason Alarm was Cleared
 }

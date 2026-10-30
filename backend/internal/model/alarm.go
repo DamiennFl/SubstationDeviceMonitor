@@ -7,8 +7,7 @@ import (
 )
 
 type Alarm struct {
-	Id              uuid.UUID        `json:"id"`                        // Alarm ID
-	RuleID          uuid.UUID        `json:"ruleId,omitempty"`          // Matching Rule ID
+	Id	            uuid.UUID        `json:"id"`                        // Alarm ID
 	DeviceID        uuid.UUID        `json:"deviceId"`                  // Matching Device ID
 	RaisedAt        time.Time        `json:"raisedAt"`                  // Raise Time and Date
 	ClearedAt       *time.Time       `json:"clearedAt,omitempty"`       // Cleared Time and Date
@@ -17,3 +16,4 @@ type Alarm struct {
 	RuleSnapshot    Rule             `json:"ruleSnapshot"`              // Snapshot of Rule which triggered Alarm
 	Acknowledgement *Acknowledgement `json:"acknowledgement,omitempty"` // Acknowledgement
 }
+
