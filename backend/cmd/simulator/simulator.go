@@ -1,1 +1,4 @@
-package simulator
+package main
+
+func main() {
+}
