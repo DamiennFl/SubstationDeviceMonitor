@@ -197,6 +197,7 @@ func (s *Store) hasDuplicateDevice(device model.Device, excludedID *uuid.UUID) b
 // Rule Functions
 //----------------------------------------------------------------------------------
 
+// ListRules returns a list of rules based on a device.
 func (s *Store) ListRules(ctx context.Context, deviceID uuid.UUID) ([]model.Rule, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -230,6 +231,7 @@ func (s *Store) ListRules(ctx context.Context, deviceID uuid.UUID) ([]model.Rule
 	return returnRuleList, nil // Return sorted list
 }
 
+// GetRule returns a singular rule based on a device ID and rule ID.
 func (s *Store) GetRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID) (model.Rule, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -258,6 +260,7 @@ func (s *Store) GetRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUI
 
 }
 
+// CreateRule creates and stores a new Rule.
 func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, error) {
 	s.mu.Lock()         // Lock Store
 	defer s.mu.Unlock() // Defer the Unlock until function is done executing
@@ -295,6 +298,7 @@ func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, er
 	return rule, nil
 }
 
+// UpdateRule updates one or more values of a Rule using a function value.
 func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID, edit func(rule model.Rule) (model.Rule, error)) (model.Rule, error) {
 	// Lock and deferred Unlock
 	s.mu.Lock()
@@ -349,7 +353,7 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 		return model.Rule{}, ErrDuringRuleUpdate
 	}
 
-	// Duplicate check
+	// Duplicate check for new rule; make sure it does not overlap with another
 	if s.hasDuplicateRule(newRule, rulesList, &ruleID) {
 		return model.Rule{}, ErrDuplicateRule
 	}
@@ -363,6 +367,7 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 	return newRule, nil
 }
 
+// DeleteRule deletes a rule from a device's list of rules.
 func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID) error {
 	// Lock and Unlock
 	s.mu.Lock()
@@ -407,6 +412,7 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 	return nil
 }
 
+// hasDuplicateRule checks if a rules list contains a duplicate rule, optionally skips an item for update function
 func (s *Store) hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID) bool {
 
 	// No need for device check or rule list check, we only call this after we validate in other functions

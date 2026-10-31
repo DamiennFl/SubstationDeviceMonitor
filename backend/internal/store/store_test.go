@@ -297,7 +297,7 @@ func TestDeleteDeviceEdgeCase(t *testing.T) {
 		t.Fatalf("first DeleteDevice() error = %v", err)
 	}
 	// Try and delete again; should error
-	if err := s.DeleteDevice(t.Context(), device.ID); !errors.Is(err, ErrAlreadyDeleted) {
+	if err := s.DeleteDevice(t.Context(), device.ID); !errors.Is(err, ErrDeviceAlreadyDeleted) {
 		t.Fatalf("second DeleteDevice() error = %v, want ErrAlreadyDeleted", err)
 	}
 }
