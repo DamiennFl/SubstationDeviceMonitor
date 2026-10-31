@@ -71,8 +71,12 @@ Live Updates
  - Error shape: JSON body with readable message, no internal details.
  - Event timestamps come from devices, to ensure proper logging of events and alarms.
  - When a rule is modified, disabled, or deleted, any alarms currently triggered by those rules will clear with a message stating which occurred. If it cleared due to regular conditions, e.g. the relay reported normal values, no clear reason message will be displayed.
+
+
  - Deploy order matters if data models are updated in the package, since the API will have strict input checking. Update API first then simulator.
  - When using pointers for input, a PATCH will never be able to clear a value like removing a deadband, since "not sent" and "send as null" both arrive as nil.
+ - Rules are stored as a list per device. It is slower to find a single rule, since we have to iterate through the list, however editing is rarer than fetching the list of rules, which we need when readings come through to potentially trigger alarms.
+ - Store contains a clock to keep devices, rules, and alarms synchronized.
 
 ### Future improvements:
  - More SSE events (device created or deleted, alarm acknowledged)
