@@ -9,11 +9,21 @@ import (
 	"github.com/google/uuid"
 )
 
+// testDevice minimal model
 func testDevice(name, ip string) model.Device {
 	return model.Device{
 		ID:   uuid.New(),
 		Name: name,
 		IP:   ip,
+	}
+}
+
+// testRule minimal model
+func testRule(deviceID uuid.UUID, name string) model.Rule {
+	return model.Rule{
+		ID:       uuid.New(),
+		DeviceID: deviceID,
+		Name:     name,
 	}
 }
 
@@ -469,5 +479,306 @@ func TestUpdateDeviceIDChange(t *testing.T) {
 	})
 	if !errors.Is(err, ErrDuringDeviceUpdate) {
 		t.Fatalf("UpdateDevice() error = %v, want ErrDuringUpdate", err)
+	}
+}
+
+// Regular case: ListRules returns rules in name order.
+func TestListRules(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rules and validate
+	for _, rule := range []model.Rule{
+		testRule(device.ID, "Voltage"),
+		testRule(device.ID, "Current"),
+	} {
+		if _, err := s.CreateRule(t.Context(), rule); err != nil {
+			t.Fatalf("CreateRule() error = %v", err)
+		}
+	}
+
+	// List rules
+	rules, err := s.ListRules(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListRules() error = %v", err)
+	}
+	// Check they are alphabetical
+	if len(rules) != 2 || rules[0].Name != "Current" || rules[1].Name != "Voltage" {
+		t.Fatalf("ListRules() = %#v, want rules sorted by name", rules)
+	}
+}
+
+// Edge case: ListRules returns a non-nil empty slice for a device with no rules.
+func TestListRulesEdgeCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	// List rules; validate empty list not error
+	rules, err := s.ListRules(t.Context(), device.ID)
+	if err != nil || rules == nil || len(rules) != 0 {
+		t.Fatalf("ListRules() = %#v, %v; want non-nil empty slice", rules, err)
+	}
+}
+
+// Invalid case: ListRules rejects an unknown device.
+func TestListRulesInvalidCase(t *testing.T) {
+	// New store with unknown device
+	rules, err := NewStore(t.Context()).ListRules(t.Context(), uuid.New())
+	if !errors.Is(err, ErrDeviceNotFound) || rules == nil || len(rules) != 0 {
+		t.Fatalf("ListRules() = %#v, %v; want empty slice and ErrDeviceNotFound", rules, err)
+	}
+}
+
+// Regular case: GetRule returns a rule belonging to the requested device.
+func TestGetRule(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and rule, and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	rule := testRule(device.ID, "Overvoltage")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	// Get rule
+	got, err := s.GetRule(t.Context(), device.ID, rule.ID)
+	if err != nil {
+		t.Fatalf("GetRule() error = %v", err)
+	}
+	// Validate rule
+	if got.ID != rule.ID || got.Name != rule.Name || got.DeviceID != device.ID {
+		t.Fatalf("GetRule() = %#v, want %#v", got, rule)
+	}
+}
+
+// Edge case: GetRule returns ErrRuleNotFound when a device has no rules.
+func TestGetRuleEdgeCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	// Get non-existent rule, validate error
+	_, err := s.GetRule(t.Context(), device.ID, uuid.New())
+	if !errors.Is(err, ErrRuleNotFound) {
+		t.Fatalf("GetRule() error = %v, want ErrRuleNotFound", err)
+	}
+}
+
+// Invalid case: GetRule rejects an unknown device.
+func TestGetRuleInvalidCase(t *testing.T) {
+	// Get rule with unknown device and rule, validate error
+	_, err := NewStore(t.Context()).GetRule(t.Context(), uuid.New(), uuid.New())
+	if !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("GetRule() error = %v, want ErrDeviceNotFound", err)
+	}
+}
+
+// Regular case: CreateRule stores a rule and sets its timestamps.
+func TestCreateRule(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+
+	// Create rule and validate
+	created, err := s.CreateRule(t.Context(), rule)
+	if err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// Validate values
+	if created.ID != rule.ID || created.DeviceID != device.ID || created.Name != rule.Name {
+		t.Fatalf("CreateRule() = %#v, want %#v", created, rule)
+	}
+	// Validate timestamps
+	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() {
+		t.Fatalf("CreateRule() returned zero timestamps: %#v", created)
+	}
+}
+
+// Edge case: CreateRule rejects a nil rule UUID.
+func TestCreateRuleEdgeCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule and set UUID to nil
+	rule := testRule(device.ID, "Overcurrent")
+	rule.ID = uuid.Nil
+
+	// Try to create Rule with nil UUID, validate error
+	if _, err := s.CreateRule(t.Context(), rule); !errors.Is(err, ErrNilRuleUUID) {
+		t.Fatalf("CreateRule() error = %v, want ErrNilRuleUUID", err)
+	}
+}
+
+// Invalid case: CreateRule rejects a duplicate rule name.
+func TestCreateRuleInvalidCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// New device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule "Overcurrent"
+	first := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), first); err != nil {
+		t.Fatalf("CreateRule(first) error = %v", err)
+	}
+	// New rule with same name
+	duplicate := testRule(device.ID, first.Name)
+
+	// Try to create rule with duplicate Name, validate error
+	if _, err := s.CreateRule(t.Context(), duplicate); !errors.Is(err, ErrDuplicateRule) {
+		t.Fatalf("CreateRule() error = %v, want ErrDuplicateRule", err)
+	}
+}
+
+// Regular case: UpdateRule applies an edit and preserves rule identity.
+func TestUpdateRule(t *testing.T) {
+	s := NewStore(t.Context())
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule "Overcurrent"
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	// Update Rule name
+	updated, err := s.UpdateRule(t.Context(), device.ID, rule.ID, func(rule model.Rule) (model.Rule, error) {
+		rule.Name = "Undervoltage"
+		return rule, nil
+	})
+	// Validate no error after update
+	if err != nil {
+		t.Fatalf("UpdateRule() error = %v", err)
+	}
+	// Validate ID persisted, new name
+	if updated.ID != rule.ID || updated.DeviceID != device.ID || updated.Name != "Undervoltage" {
+		t.Fatalf("UpdateRule() = %#v, want updated rule identity and name", updated)
+	}
+}
+
+// Edge case: UpdateRule returns the edit error without saving changes.
+func TestUpdateRuleEdgeCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule "Overcurrent"
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	editErr := errors.New("edit failed")
+
+	// Define update function value as returning error
+	_, err := s.UpdateRule(t.Context(), device.ID, rule.ID, func(rule model.Rule) (model.Rule, error) {
+		rule.Name = "Changed"
+		return rule, editErr
+	})
+	// Validate error was returned by UpdateRule
+	if !errors.Is(err, editErr) {
+		t.Fatalf("UpdateRule() error = %v, want edit error", err)
+	}
+	// Validate rule was not changed
+	stored, err := s.GetRule(t.Context(), device.ID, rule.ID)
+	if err != nil || stored.Name != rule.Name {
+		t.Fatalf("GetRule() = %#v, %v; want unchanged rule", stored, err)
+	}
+}
+
+// Invalid case: UpdateRule rejects an edit that changes the rule ID.
+func TestUpdateRuleInvalidCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	// Try and update. UpdateRule will reject ID update and not update Rule
+	_, err := s.UpdateRule(t.Context(), device.ID, rule.ID, func(rule model.Rule) (model.Rule, error) {
+		rule.ID = uuid.New()
+		return rule, nil
+	})
+	// Validate error
+	if !errors.Is(err, ErrDuringRuleUpdate) {
+		t.Fatalf("UpdateRule() error = %v, want ErrDuringRuleUpdate", err)
+	}
+}
+
+// Regular case: DeleteRule removes an existing rule.
+func TestDeleteRule(t *testing.T) {
+	s := NewStore(t.Context())
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	// Delete rule
+	if err := s.DeleteRule(t.Context(), device.ID, rule.ID); err != nil {
+		t.Fatalf("DeleteRule() error = %v", err)
+	}
+	// Validate rule was deleted
+	if _, err := s.GetRule(t.Context(), device.ID, rule.ID); !errors.Is(err, ErrRuleNotFound) {
+		t.Fatalf("GetRule() error = %v, want ErrRuleNotFound", err)
+	}
+}
+
+// Edge case: DeleteRule rejects deleting a rule that is already absent.
+func TestDeleteRuleEdgeCase(t *testing.T) {
+	s := NewStore(t.Context())
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	// Try and delete non-existent rule, validate error
+	if err := s.DeleteRule(t.Context(), device.ID, uuid.New()); !errors.Is(err, ErrRuleNotFound) {
+		t.Fatalf("DeleteRule() error = %v, want ErrRuleNotFound", err)
+	}
+}
+
+// Invalid case: DeleteRule rejects an unknown device.
+func TestDeleteRuleInvalidCase(t *testing.T) {
+	// Try and delete unknown rule from unknown device, validate error
+	if err := NewStore(t.Context()).DeleteRule(t.Context(), uuid.New(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("DeleteRule() error = %v, want ErrDeviceNotFound", err)
 	}
 }
