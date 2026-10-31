@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -39,4 +40,27 @@ func (s *Store) listDevices() []model.Device {
 	})
 
 	return deviceList // Return sorted list
+}
+
+// Get a specific device based on its UUID
+func (s *Store) getDevice(deviceId uuid.UUID) (model.Device, error) {
+	s.mu.RLock()         // Lock Store
+	defer s.mu.RUnlock() // Defer the Unlock until the function is done executing
+
+	device, ok := s.devices[deviceId] // Get device, if it exists
+	if !ok {
+		return model.Device{}, errors.New("Device not found.") // If it does not exist, return nil Device and error.
+	}
+
+	return device, nil // Return device
+}
+
+// Adds passed in device to this Store's map
+func (s *Store) createDevice(device model.Device) model.Device {
+	s.mu.Lock()         // Lock Store
+	defer s.mu.Unlock() // Defer the Unlock until function is done executing
+
+	s.devices[device.ID] = device // Get device if it exists
+
+	return device // Return it
 }
