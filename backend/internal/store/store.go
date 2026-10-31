@@ -9,6 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
+var (
+	ErrDeviceNotFound  = errors.New("device not found")
+	ErrDuplicateDevice = errors.New("device name or IP already exists")
+)
+
 // Store holds device data and protects it from concurrent access.
 type Store struct {
 	mu      sync.RWMutex               // Mutex for locking Store
@@ -16,14 +21,14 @@ type Store struct {
 }
 
 // Store constructor, which initializes the map and a pointer to the Store
-func newStore() *Store {
+func NewStore() *Store {
 	return &Store{ // Return pointer
 		devices: make(map[uuid.UUID]model.Device), // Make new map
 	}
 }
 
 // List devices present in this Store's map, alphabetically.
-func (s *Store) listDevices() []model.Device {
+func (s *Store) ListDevices() ([]model.Device, error) {
 	s.mu.RLock()         // Lock Store
 	defer s.mu.RUnlock() // Defer the Unlock until the function is done executing
 
@@ -39,28 +44,37 @@ func (s *Store) listDevices() []model.Device {
 		return deviceList[i].Name < deviceList[j].Name // Compare
 	})
 
-	return deviceList // Return sorted list
+	return deviceList, nil // Return sorted list
 }
 
 // Get a specific device based on its UUID
-func (s *Store) getDevice(deviceId uuid.UUID) (model.Device, error) {
+func (s *Store) GetDevice(deviceID uuid.UUID) (model.Device, error) {
 	s.mu.RLock()         // Lock Store
 	defer s.mu.RUnlock() // Defer the Unlock until the function is done executing
 
-	device, ok := s.devices[deviceId] // Get device, if it exists
-	if !ok {
-		return model.Device{}, errors.New("Device not found.") // If it does not exist, return nil Device and error.
+	device, ok := s.devices[deviceID] // Get device, if it exists
+	if !ok || device.DeletedAt != nil {
+		return model.Device{}, ErrDeviceNotFound // If it does not exist, return zero Device and error.
 	}
 
 	return device, nil // Return device
 }
 
 // Adds passed in device to this Store's map
-func (s *Store) createDevice(device model.Device) model.Device {
+func (s *Store) CreateDevice(device model.Device) (model.Device, error) {
 	s.mu.Lock()         // Lock Store
 	defer s.mu.Unlock() // Defer the Unlock until function is done executing
 
-	s.devices[device.ID] = device // Get device if it exists
+	for _, existing := range s.devices { // Iterate devices
+		if existing.DeletedAt != nil { // Skip soft-deleted
+			continue
+		}
+		if existing.Name == device.Name || existing.IP == device.IP { // If a field is matching, it is duplicate, don't add
+			return model.Device{}, ErrDuplicateDevice // Return nil struct and error
+		}
+	}
 
-	return device // Return it
+	s.devices[device.ID] = device // Set device
+
+	return device, nil // Return it
 }
