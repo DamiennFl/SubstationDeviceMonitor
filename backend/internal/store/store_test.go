@@ -27,6 +27,15 @@ func testRule(deviceID uuid.UUID, name string) model.Rule {
 	}
 }
 
+func testAlarm(deviceID, ruleID uuid.UUID, raisedAt time.Time) model.Alarm {
+	return model.Alarm{
+		ID:       uuid.New(),
+		RuleID:   &ruleID,
+		DeviceID: deviceID,
+		RaisedAt: raisedAt,
+	}
+}
+
 // Regular case: NewStore returns an initialized store with no devices.
 func TestNewStore(t *testing.T) {
 	s := NewStore()
@@ -780,5 +789,214 @@ func TestDeleteRuleInvalidCase(t *testing.T) {
 	// Try and delete unknown rule from unknown device, validate error
 	if err := NewStore().DeleteRule(t.Context(), uuid.New(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("DeleteRule() error = %v, want ErrDeviceNotFound", err)
+	}
+}
+
+// Regular case: ListAlarms returns alarms newest first.
+func TestListAlarms(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	// Create alarms
+	older := testAlarm(device.ID, rule.ID, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	newer := testAlarm(device.ID, rule.ID, older.RaisedAt.Add(time.Minute))
+	// Raise alarm, ensure no error
+	if _, err := s.RaiseAlarm(t.Context(), older); err != nil {
+		t.Fatalf("RaiseAlarm(older) error = %v", err)
+	}
+	// Clear alarm, ensure no error
+	if _, err := s.ClearAlarm(t.Context(), older, newer.RaisedAt, model.ClearReasonNormal); err != nil {
+		t.Fatalf("ClearAlarm(older) error = %v", err)
+	}
+	// Raise alarm, ensure no error
+	if _, err := s.RaiseAlarm(t.Context(), newer); err != nil {
+		t.Fatalf("RaiseAlarm(newer) error = %v", err)
+	}
+	// List alarms
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	// Ensure no error during list
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	// Validate list result. First alarm in the list should be the newest (by time) alarm.
+	if len(alarms) != 2 || alarms[0].ID != newer.ID || alarms[1].ID != older.ID {
+		t.Fatalf("ListAlarms() = %#v, want newest alarm first", alarms)
+	}
+}
+
+// Edge case: ListAlarms returns a non-nil empty slice when a device has no alarms.
+func TestListAlarmsEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	// List empty alarms, should just give empty list and no error
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil || alarms == nil || len(alarms) != 0 {
+		t.Fatalf("ListAlarms() = %#v, %v; want non-nil empty slice", alarms, err)
+	}
+}
+
+// Invalid case: ListAlarms rejects an unknown device.
+func TestListAlarmsInvalidCase(t *testing.T) {
+	// Try and list alarms with an unknown UUID
+	alarms, err := NewStore().ListAlarms(t.Context(), uuid.New())
+	// Validate error and ensure alarms list is empty slice
+	if !errors.Is(err, ErrDeviceNotFound) || alarms == nil || len(alarms) != 0 {
+		t.Fatalf("ListAlarms() = %#v, %v; want empty slice and ErrDeviceNotFound", alarms, err)
+	}
+}
+
+// Regular case: RaiseAlarm stores an alarm for an existing device and rule.
+func TestRaiseAlarm(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// New alarm
+	alarm := testAlarm(device.ID, rule.ID, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+
+	// Raise alarm
+	created, err := s.RaiseAlarm(t.Context(), alarm)
+	// Ensure no error
+	if err != nil {
+		t.Fatalf("RaiseAlarm() error = %v", err)
+	}
+	// Validate all fields
+	if created.ID != alarm.ID || created.DeviceID != device.ID || created.RuleID == nil || *created.RuleID != rule.ID || !created.RaisedAt.Equal(alarm.RaisedAt) {
+		t.Fatalf("RaiseAlarm() = %#v, want %#v", created, alarm)
+	}
+}
+
+// Edge case: RaiseAlarm rejects a second active alarm for the same rule.
+func TestRaiseAlarmEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// Create alarm, raise and ensure no error
+	first := testAlarm(device.ID, rule.ID, time.Now().UTC())
+	if _, err := s.RaiseAlarm(t.Context(), first); err != nil {
+		t.Fatalf("RaiseAlarm(first) error = %v", err)
+	}
+	// Try to make second alarm for same rule
+	second := testAlarm(device.ID, rule.ID, first.RaisedAt.Add(time.Minute))
+
+	// Ensure trying to raise duplicate alarm returns error
+	if _, err := s.RaiseAlarm(t.Context(), second); !errors.Is(err, ErrExistingRaisedAlarm) {
+		t.Fatalf("RaiseAlarm(second) error = %v, want ErrExistingRaisedAlarm", err)
+	}
+}
+
+// Invalid case: RaiseAlarm rejects an alarm for an unknown device.
+func TestRaiseAlarmInvalidCase(t *testing.T) {
+	ruleID := uuid.New()
+	// New alarm with unknown values
+	alarm := testAlarm(uuid.New(), ruleID, time.Now().UTC())
+
+	// Try and raise alarm with unknown rule and device, ensure error
+	if _, err := NewStore().RaiseAlarm(t.Context(), alarm); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("RaiseAlarm() error = %v, want ErrDeviceNotFound", err)
+	}
+}
+
+// Regular case: ClearAlarm marks the active alarm as cleared.
+func TestClearAlarm(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// New alarm, raise and ensure no error
+	alarm := testAlarm(device.ID, rule.ID, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC))
+	if _, err := s.RaiseAlarm(t.Context(), alarm); err != nil {
+		t.Fatalf("RaiseAlarm() error = %v", err)
+	}
+	// Get unique time
+	clearedAt := alarm.RaisedAt.Add(time.Minute)
+
+	// Clear alarm with unique time, ensure no error
+	cleared, err := s.ClearAlarm(t.Context(), alarm, clearedAt, model.ClearReasonNormal)
+	if err != nil {
+		t.Fatalf("ClearAlarm() error = %v", err)
+	}
+	// Validate all values
+	if cleared.ID != alarm.ID || cleared.ClearedAt == nil || !cleared.ClearedAt.Equal(clearedAt) || cleared.ClearReason == nil || *cleared.ClearReason != model.ClearReasonNormal {
+		t.Fatalf("ClearAlarm() = %#v, want cleared alarm", cleared)
+	}
+}
+
+// Edge case: ClearAlarm rejects an alarm that is already cleared.
+func TestClearAlarmEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// New alarm, raise and ensure no error
+	alarm := testAlarm(device.ID, rule.ID, time.Now().UTC())
+	if _, err := s.RaiseAlarm(t.Context(), alarm); err != nil {
+		t.Fatalf("RaiseAlarm() error = %v", err)
+	}
+	// Clear alarm, ensure no error
+	if _, err := s.ClearAlarm(t.Context(), alarm, time.Now().UTC(), model.ClearReasonNormal); err != nil {
+		t.Fatalf("ClearAlarm(first) error = %v", err)
+	}
+	// Try and clear again, ensure error
+	if _, err := s.ClearAlarm(t.Context(), alarm, time.Now().UTC(), model.ClearReasonNormal); !errors.Is(err, ErrAlarmNotFound) {
+		t.Fatalf("ClearAlarm(second) error = %v, want ErrAlarmNotFound", err)
+	}
+}
+
+// Invalid case: ClearAlarm rejects an alarm without an associated rule.
+func TestClearAlarmInvalidCase(t *testing.T) {
+	// New alarm with no RuleID (floating)
+	alarm := model.Alarm{
+		ID:       uuid.New(),
+		DeviceID: uuid.New(),
+	}
+
+	// Try and clear alarm, ensure error
+	// Note: No raised alarm with no RuleID will ever exist, requires Rule to raise.
+	if _, err := NewStore().ClearAlarm(t.Context(), alarm, time.Now().UTC(), model.ClearReasonNormal); !errors.Is(err, ErrNoAssociatedRule) {
+		t.Fatalf("ClearAlarm() error = %v, want ErrNoAssociatedRule", err)
 	}
 }

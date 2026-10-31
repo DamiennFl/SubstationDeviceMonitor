@@ -32,23 +32,23 @@ var (
 
 // Store holds device data and protects it from concurrent access.
 type Store struct {
-	mu               sync.RWMutex                          // Mutex for locking Store
-	devices          map[uuid.UUID]model.Device            // Device map
-	rules            map[uuid.UUID][]model.Rule            // Rules: Device ID maps to list of Rules
-	alarms           map[uuid.UUID][]model.Alarm           // Alarms: Device ID maps to list of Alarms
-	acknowledgements map[uuid.UUID][]model.Acknowledgement // Acknowledgements: Alarm ID maps to list of Acknowledgements
-	readings         map[uuid.UUID][]model.Reading         // Readings: Device ID maps to list of Readings
-	now              func() time.Time                      // Current time, replaceable in tests
+	mu               sync.RWMutex                        // Mutex for locking Store
+	devices          map[uuid.UUID]model.Device          // Device map
+	rules            map[uuid.UUID][]model.Rule          // Rules: Device ID maps to list of Rules
+	alarms           map[uuid.UUID][]model.Alarm         // Alarms: Device ID maps to list of Alarms
+	acknowledgements map[uuid.UUID]model.Acknowledgement // Acknowledgements: Alarm ID maps to list of Acknowledgements
+	readings         map[uuid.UUID][]model.Reading       // Readings: Device ID maps to list of Readings
+	now              func() time.Time                    // Current time, replaceable in tests
 }
 
 // Store constructor, which initializes the map and a pointer to the Store
 func NewStore() *Store {
 	return &Store{ // Return pointer
-		devices:          make(map[uuid.UUID]model.Device),            // Make new devices map
-		rules:            make(map[uuid.UUID][]model.Rule),            // Make new rules map
-		alarms:           make(map[uuid.UUID][]model.Alarm),           // Make new alarms map
-		acknowledgements: make(map[uuid.UUID][]model.Acknowledgement), // Make new acknowledgements map
-		readings:         make(map[uuid.UUID][]model.Reading),         // Make new readings map
+		devices:          make(map[uuid.UUID]model.Device),          // Make new devices map
+		rules:            make(map[uuid.UUID][]model.Rule),          // Make new rules map
+		alarms:           make(map[uuid.UUID][]model.Alarm),         // Make new alarms map
+		acknowledgements: make(map[uuid.UUID]model.Acknowledgement), // Make new acknowledgements map
+		readings:         make(map[uuid.UUID][]model.Reading),       // Make new readings map
 		now: func() time.Time { // Use the real UTC clock by default
 			return time.Now().UTC()
 		},
@@ -175,7 +175,7 @@ func (s *Store) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
 	// Get time
 	currentTime := s.now()
 
-	// TODO: Loop and check for unacknowledged alarms
+	// TODO: Check acknowledgements and return if necessary
 
 	// Clear all Alarms
 	for index, alarm := range s.alarms[deviceID] {
@@ -325,8 +325,6 @@ func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, er
 // UpdateRule updates one or more values of a Rule using a function value.
 func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID, edit func(rule model.Rule) (model.Rule, error)) (model.Rule, error) {
 
-	// TODO: Once Alarm logic is implemented, add logic that disabling a Rule closes an Active alarm
-
 	// Lock and deferred Unlock
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -385,8 +383,17 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 		return model.Rule{}, ErrDuplicateRule
 	}
 
+	currentTime := s.now()
+
+	// TODO: Check acknowledgements and return if necessary
+
+	// Rule has been disabled, clear alarm
+	if newRule.Enabled != nil && *newRule.Enabled == false {
+		s.clearActiveAlarm(deviceID, ruleID, currentTime, model.ClearReasonRuleDisabled)
+	}
+
 	// Update updated time to now
-	newRule.UpdatedAt = s.now()
+	newRule.UpdatedAt = currentTime
 
 	// Replace the existing rule
 	rulesList[ruleIndex] = newRule
@@ -437,17 +444,15 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 
 	currentTime := s.now()
 
-	// TODO: Loop and check for unacknowledged alarms
+	// TODO: Check acknowledgements and return if necessary
 
 	// Clear all Alarms
 	for index, alarm := range s.alarms[deviceID] {
-		if alarm.RuleID == &ruleID {
-			if alarm.ClearedAt == nil {
-				alarm.ClearedAt = &currentTime
-				reason := model.ClearReasonDeviceDeleted
-				alarm.ClearReason = &reason
-				s.alarms[deviceID][index] = alarm
-			}
+		if alarm.RuleID != nil && *alarm.RuleID == ruleID && alarm.ClearedAt == nil {
+			alarm.ClearedAt = &currentTime
+			reason := model.ClearReasonRuleDeleted
+			alarm.ClearReason = &reason
+			s.alarms[deviceID][index] = alarm
 		}
 	}
 
