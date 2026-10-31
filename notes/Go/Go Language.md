@@ -459,3 +459,7 @@ sort.Slice(slice, func(i, j int) bool { // We are inside function definition
 										   // whose value is smaller than j's comes earlier in the list.
 })
 ```
+
+### Context
+
+context package allows for proper handling of lifecycle of goroutines, e.g. for things like database calls. Instead of having to manually handle error cases like calling a db and the process being cancelled, and thus having to discard the data, context will automatically handle things like discarding and deadlines specifically for concurrent goroutines. Helps prevent infinitely hanging goroutines.

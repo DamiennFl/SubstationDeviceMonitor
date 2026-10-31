@@ -111,7 +111,7 @@ func TestGetDeviceEdgeCase(t *testing.T) {
 	s := NewStore(t.Context())
 	device := testDevice("Zero ID Relay", "192.0.2.2")
 	device.ID = uuid.Nil
-	if _, err := s.CreateDevice(t.Context(), device); !errors.Is(err, ErrNilUUID) {
+	if _, err := s.CreateDevice(t.Context(), device); !errors.Is(err, ErrNilDeviceUUID) {
 		t.Fatalf("CreateDevice() error = %v, want ErrNilUUID", err)
 	}
 
@@ -467,7 +467,7 @@ func TestUpdateDeviceIDChange(t *testing.T) {
 		device.ID = uuid.New()
 		return device, nil
 	})
-	if !errors.Is(err, ErrDuringUpdate) {
+	if !errors.Is(err, ErrDuringDeviceUpdate) {
 		t.Fatalf("UpdateDevice() error = %v, want ErrDuringUpdate", err)
 	}
 }
