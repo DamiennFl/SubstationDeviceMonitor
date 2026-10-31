@@ -23,6 +23,11 @@ var (
 	ErrDuplicateRule    = errors.New("device rule already exists")
 	ErrNilRuleUUID      = errors.New("uuid for a rule was nil")
 	ErrDuringRuleUpdate = errors.New("error occurred during rule update")
+
+	ErrAlarmNotFound       = errors.New("alarm not found")
+	ErrNilAlarmUUID        = errors.New("uuid for an alarm was nil")
+	ErrExistingRaisedAlarm = errors.New("existing raised alarm for rule was found")
+	ErrNoAssociatedRule    = errors.New("no associated rule was set for alarm")
 )
 
 // Store holds device data and protects it from concurrent access.
@@ -170,6 +175,18 @@ func (s *Store) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
 	// Get time
 	currentTime := s.now()
 
+	// TODO: Loop and check for unacknowledged alarms
+
+	// Clear all Alarms
+	for index, alarm := range s.alarms[deviceID] {
+		if alarm.ClearedAt == nil {
+			alarm.ClearedAt = &currentTime
+			reason := model.ClearReasonDeviceDeleted
+			alarm.ClearReason = &reason
+			s.alarms[deviceID][index] = alarm
+		}
+	}
+
 	// Set deleted and updated to same time
 	device.DeletedAt = &currentTime
 	device.UpdatedAt = currentTime
@@ -227,7 +244,7 @@ func (s *Store) ListRules(ctx context.Context, deviceID uuid.UUID) ([]model.Rule
 
 	// Add rules
 	for _, rule := range ruleList { // Iterate through map
-		returnRuleList = append(returnRuleList, rule) // Add device to list
+		returnRuleList = append(returnRuleList, rule) // Add rule to list
 	}
 
 	// Sort rules alphabetically for display
@@ -418,6 +435,22 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 		return ErrRuleNotFound
 	}
 
+	currentTime := s.now()
+
+	// TODO: Loop and check for unacknowledged alarms
+
+	// Clear all Alarms
+	for index, alarm := range s.alarms[deviceID] {
+		if alarm.RuleID == &ruleID {
+			if alarm.ClearedAt == nil {
+				alarm.ClearedAt = &currentTime
+				reason := model.ClearReasonDeviceDeleted
+				alarm.ClearReason = &reason
+				s.alarms[deviceID][index] = alarm
+			}
+		}
+	}
+
 	// Delete element in list
 	s.rules[deviceID] = slices.Delete(rulesList, ruleIndex, ruleIndex+1)
 
@@ -452,15 +485,114 @@ func hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID
 //----------------------------------------------------------------------------------
 
 func (s *Store) ListAlarms(ctx context.Context, deviceID uuid.UUID) ([]model.Alarm, error) {
-	return []model.Alarm{}, nil
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Check that device actually exists first, before getting alarms
+	device, ok := s.devices[deviceID]
+	if !ok || device.DeletedAt != nil {
+		return []model.Alarm{}, ErrDeviceNotFound
+	}
+
+	// Get Alarm list, can be empty
+	alarmList, ok := s.alarms[deviceID]
+
+	if !ok { // No list of Alarms, but that is valid. Return empty list with no error
+		return []model.Alarm{}, nil
+	}
+
+	// Make new list copy
+	returnAlarmList := make([]model.Alarm, 0, len(alarmList))
+
+	// Copy alarms into the result slice
+	for _, alarm := range alarmList {
+		returnAlarmList = append(returnAlarmList, alarm)
+	}
+
+	return returnAlarmList, nil // Return alarms newest first
+
 }
 
 func (s *Store) RaiseAlarm(ctx context.Context, alarm model.Alarm) (model.Alarm, error) {
-	return model.Alarm{}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Check for existing device
+	device, ok := s.devices[alarm.DeviceID]
+	if !ok || device.DeletedAt != nil {
+		return model.Alarm{}, ErrDeviceNotFound
+	}
+
+	// Check for existing alarmList
+	alarmList, ok := s.alarms[alarm.DeviceID]
+
+	if !ok { // No alarm list for the device yet, initialize it
+		alarmList = make([]model.Alarm, 0)
+	}
+
+	// Do not create if UUID is nil
+	if alarm.ID == uuid.Nil {
+		return model.Alarm{}, ErrNilAlarmUUID
+	}
+
+	// RuleID nil pointer dereference check
+	if alarm.RuleID == nil {
+		return model.Alarm{}, ErrNoAssociatedRule
+	}
+
+	// Verify that the associated rule belongs to the device.
+	rulesList, ok := s.rules[alarm.DeviceID]
+	if !ok {
+		return model.Alarm{}, ErrRuleNotFound
+	}
+
+	// Verify that Rule for Alarm exists
+	ruleExists := false
+	for _, rule := range rulesList {
+		if rule.ID == *alarm.RuleID {
+			ruleExists = true
+			break
+		}
+	}
+
+	// If Rule does not exist, return error
+	if !ruleExists {
+		return model.Alarm{}, ErrRuleNotFound
+	}
+
+	// Check if active alarm exists. If so, return with error, we don't want to infinitely add new alarms at each check.
+	_, exists := s.findActiveAlarm(alarm.DeviceID, *alarm.RuleID)
+	if exists {
+		return model.Alarm{}, ErrExistingRaisedAlarm
+	}
+
+	// Add alarm to alarm list at the beginning.
+	s.alarms[alarm.DeviceID] = slices.Insert(alarmList, 0, alarm)
+	return alarm, nil
 }
 
-func (s *Store) ClearAlarm(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID, clearedTime time.Time, reason model.ClearReason) (model.Alarm, error) {
-	return model.Alarm{}, nil
+func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime time.Time, reason model.ClearReason) (model.Alarm, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Do not clear if UUID is nil
+	if alarm.ID == uuid.Nil {
+		return model.Alarm{}, ErrNilAlarmUUID
+	}
+
+	// RuleID nil pointer dereference check
+	if alarm.RuleID == nil {
+		return model.Alarm{}, ErrNoAssociatedRule
+	}
+
+	// Clear Alarm
+	clearedAlarm, err := s.clearActiveAlarm(alarm.DeviceID, *alarm.RuleID, clearedTime, reason)
+
+	if err != nil {
+		return model.Alarm{}, err
+	}
+
+	return clearedAlarm, nil
 }
 
 func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, acknowledgedBy string) (model.Alarm, error) {
@@ -469,10 +601,67 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmI
 
 // findActiveAlarm is a helper to find an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
 func (s *Store) findActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID) (int, bool) {
-	return 0, false
+	for index, alarm := range s.alarms[deviceID] {
+		if alarm.RuleID != nil && *alarm.RuleID == ruleID && alarm.ClearedAt == nil {
+			return index, true
+		}
+	}
+
+	return -1, false
 }
 
 // clearActiveAlarm is a helper to clear an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
 func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTime time.Time, reason model.ClearReason) (model.Alarm, error) {
-	return model.Alarm{}, nil
+	// Check for existing device
+	device, ok := s.devices[deviceID]
+	if !ok || device.DeletedAt != nil {
+		return model.Alarm{}, ErrDeviceNotFound
+	}
+
+	// Check for existing alarmList
+	alarmList, ok := s.alarms[deviceID]
+
+	if !ok || len(alarmList) == 0 { // No alarm list or alarms for the device yet, error out
+		return model.Alarm{}, ErrAlarmNotFound
+	}
+
+	// Verify that the associated rule belongs to the device.
+	rulesList, ok := s.rules[deviceID]
+	if !ok {
+		return model.Alarm{}, ErrRuleNotFound
+	}
+
+	// Verify that Rule for Alarm exists
+	ruleExists := false
+	for _, rule := range rulesList {
+		if rule.ID == ruleID {
+			ruleExists = true
+			break
+		}
+	}
+
+	// If Rule does not exist, return error
+	if !ruleExists {
+		return model.Alarm{}, ErrRuleNotFound
+	}
+
+	index, exists := s.findActiveAlarm(deviceID, ruleID)
+
+	// If Alarm does not exist, nothing to clear. Return error
+	if !exists {
+		return model.Alarm{}, ErrAlarmNotFound
+	}
+
+	alarm := alarmList[index]
+
+	alarm.ClearedAt = &clearedTime
+	alarm.ClearReason = &reason
+
+	alarmList[index] = alarm
+
+	return alarm, nil
 }
+
+//----------------------------------------------------------------------------------
+// Acknowledge Functions
+//----------------------------------------------------------------------------------

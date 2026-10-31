@@ -44,9 +44,10 @@ const (
 type ClearReason string
 
 const (
-	ClearReasonNormal       ClearReason = "normal"
-	ClearReasonRuleDisabled ClearReason = "ruleDisabled"
-	ClearReasonRuleDeleted  ClearReason = "ruleDeleted"
+	ClearReasonNormal        ClearReason = "normal"
+	ClearReasonRuleDisabled  ClearReason = "ruleDisabled"
+	ClearReasonRuleDeleted   ClearReason = "ruleDeleted"
+	ClearReasonDeviceDeleted ClearReason = "deviceDeleted"
 )
 
 // Measurement identifies a supported device measurement.
