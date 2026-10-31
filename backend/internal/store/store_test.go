@@ -1000,3 +1000,90 @@ func TestClearAlarmInvalidCase(t *testing.T) {
 		t.Fatalf("ClearAlarm() error = %v, want ErrNoAssociatedRule", err)
 	}
 }
+
+// Regular case: AcknowledgeAlarm stores an acknowledgement for the exact alarm.
+func TestAcknowledgeAlarm(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// New alarm
+	alarm := testAlarm(device.ID, rule.ID, time.Now().UTC())
+	if _, err := s.RaiseAlarm(t.Context(), alarm); err != nil {
+		t.Fatalf("RaiseAlarm() error = %v", err)
+	}
+	// New acknowledgement, normally would come from API through input struct
+	ack := model.Acknowledgement{
+		AcknowledgedBy: "operator",
+		AcknowledgedAt: time.Now().UTC(),
+	}
+
+	// Acknowledge Alarm, ensure no error
+	got, err := s.AcknowledgeAlarm(t.Context(), alarm, ack)
+	if err != nil {
+		t.Fatalf("AcknowledgeAlarm() error = %v", err)
+	}
+	// Check correct ID from returned Alarm
+	if got.ID != alarm.ID {
+		t.Fatalf("AcknowledgeAlarm() returned alarm ID %v, want %v", got.ID, alarm.ID)
+	}
+	// Check acknowledgements list, validate acknowledgement tied to alarm
+	stored, ok := s.acknowledgements[alarm.ID]
+	if !ok || stored.AlarmID != alarm.ID || stored.AcknowledgedBy != ack.AcknowledgedBy || !stored.AcknowledgedAt.Equal(ack.AcknowledgedAt) {
+		t.Fatalf("acknowledgements[%v] = %#v, want %#v", alarm.ID, stored, ack)
+	}
+}
+
+// Edge case: AcknowledgeAlarm allows a cleared alarm but rejects a second acknowledgement.
+func TestAcknowledgeAlarmEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// New rule
+	rule := testRule(device.ID, "Overcurrent")
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+	// New alarm, raise and ensure no error
+	alarm := testAlarm(device.ID, rule.ID, time.Now().UTC())
+	if _, err := s.RaiseAlarm(t.Context(), alarm); err != nil {
+		t.Fatalf("RaiseAlarm() error = %v", err)
+	}
+	// Clear alarm, ensure no error
+	if _, err := s.ClearAlarm(t.Context(), alarm, time.Now().UTC(), model.ClearReasonNormal); err != nil {
+		t.Fatalf("ClearAlarm() error = %v", err)
+	}
+	// Acknowledge alarm, ensure no error
+	ack := model.Acknowledgement{AcknowledgedBy: "operator", AcknowledgedAt: time.Now().UTC()}
+	if _, err := s.AcknowledgeAlarm(t.Context(), alarm, ack); err != nil {
+		t.Fatalf("AcknowledgeAlarm(first) error = %v", err)
+	}
+	// Try and acknowledge again, ensure error
+	if _, err := s.AcknowledgeAlarm(t.Context(), alarm, ack); !errors.Is(err, ErrAlarmAlreadyAcknowledged) {
+		t.Fatalf("AcknowledgeAlarm(second) error = %v, want ErrAlarmAlreadyAcknowledged", err)
+	}
+}
+
+// Invalid case: AcknowledgeAlarm rejects an alarm that is not stored for the device.
+func TestAcknowledgeAlarmInvalidCase(t *testing.T) {
+	// New alarm and acknowledgement
+	alarm := testAlarm(uuid.New(), uuid.New(), time.Now().UTC())
+	ack := model.Acknowledgement{
+		AcknowledgedBy: "operator",
+		AcknowledgedAt: time.Now().UTC(),
+	}
+	// Try and acknowledge alarm, ensure AlarmNotFound error. Acknowledgement should not be wider scope than that.
+	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm, ack); !errors.Is(err, ErrAlarmNotFound) {
+		t.Fatalf("AcknowledgeAlarm() error = %v, want ErrAlarmNotFound", err)
+	}
+}

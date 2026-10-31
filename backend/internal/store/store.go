@@ -24,10 +24,11 @@ var (
 	ErrNilRuleUUID      = errors.New("uuid for a rule was nil")
 	ErrDuringRuleUpdate = errors.New("error occurred during rule update")
 
-	ErrAlarmNotFound       = errors.New("alarm not found")
-	ErrNilAlarmUUID        = errors.New("uuid for an alarm was nil")
-	ErrExistingRaisedAlarm = errors.New("existing raised alarm for rule was found")
-	ErrNoAssociatedRule    = errors.New("no associated rule was set for alarm")
+	ErrAlarmNotFound            = errors.New("alarm not found")
+	ErrNilAlarmUUID             = errors.New("uuid for an alarm was nil")
+	ErrExistingRaisedAlarm      = errors.New("existing raised alarm for rule was found")
+	ErrNoAssociatedRule         = errors.New("no associated rule was set for alarm")
+	ErrAlarmAlreadyAcknowledged = errors.New("alarm is already acknowledged")
 )
 
 // Store holds device data and protects it from concurrent access.
@@ -600,8 +601,42 @@ func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime t
 	return clearedAlarm, nil
 }
 
-func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, acknowledgedBy string) (model.Alarm, error) {
-	return model.Alarm{}, nil
+// AcknowledgeAlarm acknowledges an alarm and ties an Acknowledgement object to it.
+func (s *Store) AcknowledgeAlarm(ctx context.Context, alarm model.Alarm, ack model.Acknowledgement) (model.Alarm, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if alarm.ID == uuid.Nil {
+		return model.Alarm{}, ErrNilAlarmUUID
+	}
+
+	alarmList, ok := s.alarms[alarm.DeviceID]
+	if !ok {
+		return model.Alarm{}, ErrAlarmNotFound
+	}
+
+	// Find the exact stored alarm by ID. Cleared alarms may still be acknowledged.
+	alarmIndex := -1
+	for index, storedAlarm := range alarmList {
+		if storedAlarm.ID == alarm.ID {
+			alarmIndex = index
+			break
+		}
+	}
+	if alarmIndex == -1 {
+		return model.Alarm{}, ErrAlarmNotFound
+	}
+
+	// The acknowledgement map is the single source of truth.
+	if _, acknowledged := s.acknowledgements[alarm.ID]; acknowledged {
+		return model.Alarm{}, ErrAlarmAlreadyAcknowledged
+	}
+
+	ack.AlarmID = alarm.ID
+	s.acknowledgements[alarm.ID] = ack
+
+	newAlarm := alarmList[alarmIndex]
+	return newAlarm, nil
 }
 
 // findActiveAlarm is a helper to find an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
@@ -666,7 +701,3 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 
 	return alarm, nil
 }
-
-//----------------------------------------------------------------------------------
-// Acknowledge Functions
-//----------------------------------------------------------------------------------
