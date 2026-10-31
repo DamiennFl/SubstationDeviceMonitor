@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
 	"github.com/google/uuid"
@@ -12,18 +13,26 @@ import (
 var (
 	ErrDeviceNotFound  = errors.New("device not found")
 	ErrDuplicateDevice = errors.New("device name or IP already exists")
+	ErrDuringUpdate    = errors.New("error occurred during device update")
+	ErrAlreadyDeleted  = errors.New("device has already been deleted")
 )
 
 // Store holds device data and protects it from concurrent access.
 type Store struct {
-	mu      sync.RWMutex               // Mutex for locking Store
-	devices map[uuid.UUID]model.Device // Device map
+	mu      sync.RWMutex                  // Mutex for locking Store
+	devices map[uuid.UUID]model.Device    // Device map
+	rules   map[uuid.UUID][]model.Rule    // Rules: Device ID maps to list of Rules
+	reading map[uuid.UUID][]model.Reading // Readings: Device ID maps to list of Readings
+	now     func() time.Time              // Current time, replaceable in tests
 }
 
 // Store constructor, which initializes the map and a pointer to the Store
 func NewStore() *Store {
 	return &Store{ // Return pointer
-		devices: make(map[uuid.UUID]model.Device), // Make new map
+		devices: make(map[uuid.UUID]model.Device),    // Make new devices map
+		rules:   make(map[uuid.UUID][]model.Rule),    // Make new rules map
+		reading: make(map[uuid.UUID][]model.Reading), // Make new readings map
+		now:     time.Now,                            // Use the real clock by default
 	}
 }
 
@@ -60,21 +69,103 @@ func (s *Store) GetDevice(deviceID uuid.UUID) (model.Device, error) {
 	return device, nil // Return device
 }
 
-// Adds passed in device to this Store's map
+// CreateDevice adds passed in device to this Store's map
 func (s *Store) CreateDevice(device model.Device) (model.Device, error) {
 	s.mu.Lock()         // Lock Store
 	defer s.mu.Unlock() // Defer the Unlock until function is done executing
 
-	for _, existing := range s.devices { // Iterate devices
-		if existing.DeletedAt != nil { // Skip soft-deleted
-			continue
-		}
-		if existing.Name == device.Name || existing.IP == device.IP { // If a field is matching, it is duplicate, don't add
-			return model.Device{}, ErrDuplicateDevice // Return nil struct and error
-		}
+	if s.hasDuplicateDevice(device, nil) {
+		return model.Device{}, ErrDuplicateDevice // Return nil struct and error
 	}
 
 	s.devices[device.ID] = device // Set device
 
 	return device, nil // Return it
+}
+
+// UpdateDevice updates a device's values
+func (s *Store) UpdateDevice(deviceID uuid.UUID, edit func(device model.Device) (model.Device, error)) (model.Device, error) {
+	// Lock and deferred Unlock
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Get device and validate
+	device, ok := s.devices[deviceID]
+	if !ok || device.DeletedAt != nil {
+		return model.Device{}, ErrDeviceNotFound
+	}
+
+	if edit == nil {
+		return model.Device{}, ErrDuringUpdate
+	}
+
+	// Run edit on device, get output
+	newDevice, err := edit(device)
+
+	// If error during edit, return empty device and edit's error
+	if err != nil {
+		return model.Device{}, err
+	}
+
+	// Duplicate check
+	if s.hasDuplicateDevice(newDevice, &deviceID) {
+		return model.Device{}, ErrDuplicateDevice // Return nil struct and error
+	}
+
+	// Verify ID is the same
+	if newDevice.ID != device.ID {
+		return model.Device{}, ErrDuringUpdate
+	}
+
+	// Update updated time to now
+	newDevice.UpdatedAt = s.now()
+
+	s.devices[deviceID] = newDevice
+
+	return s.devices[deviceID], nil
+}
+
+// hasDuplicateDevice checks active devices for a matching name or IP.
+func (s *Store) hasDuplicateDevice(device model.Device, excludedID *uuid.UUID) bool {
+	for _, existing := range s.devices { // Iterate devices
+		if existing.DeletedAt != nil { // Device has been deleted, skip
+			continue
+		}
+		if excludedID != nil && existing.ID == *excludedID { // Optionally exclude the current device ID, for update
+			continue
+		}
+		if existing.Name == device.Name || existing.IP == device.IP { // Duplicate Name or IP
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *Store) DeleteDevice(deviceID uuid.UUID) error {
+	// Lock and Unlock
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Get device and status
+	device, ok := s.devices[deviceID]
+	if !ok {
+		return ErrDeviceNotFound
+	}
+
+	if device.DeletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+
+	// Get time
+	currentTime := s.now()
+
+	// Set deleted and updated to same time
+	device.DeletedAt = &currentTime
+	device.UpdatedAt = currentTime
+
+	s.devices[deviceID] = device
+
+	// Return
+	return nil
 }
