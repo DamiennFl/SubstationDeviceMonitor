@@ -27,19 +27,23 @@ var (
 
 // Store holds device data and protects it from concurrent access.
 type Store struct {
-	mu       sync.RWMutex                  // Mutex for locking Store
-	devices  map[uuid.UUID]model.Device    // Device map
-	rules    map[uuid.UUID][]model.Rule    // Rules: Device ID maps to list of Rules
-	readings map[uuid.UUID][]model.Reading // Readings: Device ID maps to list of Readings
-	now      func() time.Time              // Current time, replaceable in tests
+	mu               sync.RWMutex                          // Mutex for locking Store
+	devices          map[uuid.UUID]model.Device            // Device map
+	rules            map[uuid.UUID][]model.Rule            // Rules: Device ID maps to list of Rules
+	alarms           map[uuid.UUID][]model.Alarm           // Alarms: Device ID maps to list of Alarms
+	acknowledgements map[uuid.UUID][]model.Acknowledgement // Acknowledgements: Alarm ID maps to list of Acknowledgements
+	readings         map[uuid.UUID][]model.Reading         // Readings: Device ID maps to list of Readings
+	now              func() time.Time                      // Current time, replaceable in tests
 }
 
 // Store constructor, which initializes the map and a pointer to the Store
 func NewStore() *Store {
 	return &Store{ // Return pointer
-		devices:  make(map[uuid.UUID]model.Device),    // Make new devices map
-		rules:    make(map[uuid.UUID][]model.Rule),    // Make new rules map
-		readings: make(map[uuid.UUID][]model.Reading), // Make new readings map
+		devices:          make(map[uuid.UUID]model.Device),            // Make new devices map
+		rules:            make(map[uuid.UUID][]model.Rule),            // Make new rules map
+		alarms:           make(map[uuid.UUID][]model.Alarm),           // Make new alarms map
+		acknowledgements: make(map[uuid.UUID][]model.Acknowledgement), // Make new acknowledgements map
+		readings:         make(map[uuid.UUID][]model.Reading),         // Make new readings map
 		now: func() time.Time { // Use the real UTC clock by default
 			return time.Now().UTC()
 		},
@@ -441,4 +445,34 @@ func hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID
 	}
 
 	return false
+}
+
+//----------------------------------------------------------------------------------
+// Alarm Functions
+//----------------------------------------------------------------------------------
+
+func (s *Store) ListAlarms(ctx context.Context, deviceID uuid.UUID) ([]model.Alarm, error) {
+	return []model.Alarm{}, nil
+}
+
+func (s *Store) RaiseAlarm(ctx context.Context, alarm model.Alarm) (model.Alarm, error) {
+	return model.Alarm{}, nil
+}
+
+func (s *Store) ClearAlarm(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID, clearedTime time.Time, reason model.ClearReason) (model.Alarm, error) {
+	return model.Alarm{}, nil
+}
+
+func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, acknowledgedBy string) (model.Alarm, error) {
+	return model.Alarm{}, nil
+}
+
+// findActiveAlarm is a helper to find an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
+func (s *Store) findActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID) (int, bool) {
+	return 0, false
+}
+
+// clearActiveAlarm is a helper to clear an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
+func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTime time.Time, reason model.ClearReason) (model.Alarm, error) {
+	return model.Alarm{}, nil
 }
