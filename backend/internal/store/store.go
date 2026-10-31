@@ -35,7 +35,7 @@ type Store struct {
 }
 
 // Store constructor, which initializes the map and a pointer to the Store
-func NewStore(ctx context.Context) *Store {
+func NewStore() *Store {
 	return &Store{ // Return pointer
 		devices:  make(map[uuid.UUID]model.Device),    // Make new devices map
 		rules:    make(map[uuid.UUID][]model.Rule),    // Make new rules map
@@ -178,6 +178,9 @@ func (s *Store) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
 
 // hasDuplicateDevice checks active devices for a matching name or IP.
 func (s *Store) hasDuplicateDevice(device model.Device, excludedID *uuid.UUID) bool {
+
+	// TODO: Once Alarm logic is implemented, add check to ensure Devices with Rules with active Alarms cannot be deleted.
+
 	for _, existing := range s.devices { // Iterate devices
 		if existing.DeletedAt != nil { // Device has been deleted, skip
 			continue
@@ -284,7 +287,7 @@ func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, er
 	}
 
 	// Return duplicate rule error if there is one
-	if s.hasDuplicateRule(rule, rulesList, nil) {
+	if hasDuplicateRule(rule, rulesList, nil) {
 		return model.Rule{}, ErrDuplicateRule
 	}
 
@@ -300,6 +303,9 @@ func (s *Store) CreateRule(ctx context.Context, rule model.Rule) (model.Rule, er
 
 // UpdateRule updates one or more values of a Rule using a function value.
 func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID, edit func(rule model.Rule) (model.Rule, error)) (model.Rule, error) {
+
+	// TODO: Once Alarm logic is implemented, add logic that disabling a Rule closes an Active alarm
+
 	// Lock and deferred Unlock
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -354,7 +360,7 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 	}
 
 	// Duplicate check for new rule; make sure it does not overlap with another
-	if s.hasDuplicateRule(newRule, rulesList, &ruleID) {
+	if hasDuplicateRule(newRule, rulesList, &ruleID) {
 		return model.Rule{}, ErrDuplicateRule
 	}
 
@@ -369,6 +375,9 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 
 // DeleteRule deletes a rule from a device's list of rules.
 func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID) error {
+
+	// TODO: Once Alarm logic is implemented, add check to ensure Rules with active Alarms cannot be deleted.
+
 	// Lock and Unlock
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -380,7 +389,7 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 	}
 
 	if device.DeletedAt != nil {
-		return ErrDeviceAlreadyDeleted
+		return ErrDeviceNotFound
 	}
 
 	// Get rule list
@@ -413,7 +422,7 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 }
 
 // hasDuplicateRule checks if a rules list contains a duplicate rule, optionally skips an item for update function
-func (s *Store) hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID) bool {
+func hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID) bool {
 
 	// No need for device check or rule list check, we only call this after we validate in other functions
 

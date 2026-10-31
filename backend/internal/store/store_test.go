@@ -29,7 +29,7 @@ func testRule(deviceID uuid.UUID, name string) model.Rule {
 
 // Regular case: NewStore returns an initialized store with no devices.
 func TestNewStore(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	if s == nil {
 		t.Fatal("NewStore returned nil")
 	}
@@ -40,8 +40,8 @@ func TestNewStore(t *testing.T) {
 
 // Edge case: NewStore calls create independent stores with independent maps.
 func TestNewStoreEdgeCase(t *testing.T) {
-	first := NewStore(t.Context())
-	second := NewStore(t.Context())
+	first := NewStore()
+	second := NewStore()
 	device := testDevice("Relay A", "192.0.2.1")
 
 	if _, err := first.CreateDevice(t.Context(), device); err != nil {
@@ -54,7 +54,7 @@ func TestNewStoreEdgeCase(t *testing.T) {
 
 // Regular case: ListDevices returns active devices in name order.
 func TestListDevices(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	for _, device := range []model.Device{
 		testDevice("Relay C", "192.0.2.3"),
 		testDevice("Relay A", "192.0.2.1"),
@@ -78,7 +78,7 @@ func TestListDevices(t *testing.T) {
 
 // Edge case: ListDevices returns a non-nil empty slice for an empty
 func TestListDevicesEdgeCase(t *testing.T) {
-	devices, err := NewStore(t.Context()).ListDevices(t.Context())
+	devices, err := NewStore().ListDevices(t.Context())
 	if devices == nil || len(devices) != 0 || err != nil {
 		t.Fatalf("ListDevices() = %#v, want a non-nil empty slice", devices)
 	}
@@ -86,7 +86,7 @@ func TestListDevicesEdgeCase(t *testing.T) {
 
 // Invalid case: ListDevices excludes soft-deleted devices.
 func TestListDevicesInvalidCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Deleted Relay", "192.0.2.10")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
 		t.Fatalf("CreateDevice() error = %v", err)
@@ -101,7 +101,7 @@ func TestListDevicesInvalidCase(t *testing.T) {
 
 // Regular case: GetDevice returns an existing active device.
 func TestGetDevice(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
 		t.Fatalf("CreateDevice() error = %v", err)
@@ -118,7 +118,7 @@ func TestGetDevice(t *testing.T) {
 
 // Edge case: GetDevice cannot retrieve a device whose ID is the zero UUID.
 func TestGetDeviceEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Zero ID Relay", "192.0.2.2")
 	device.ID = uuid.Nil
 	if _, err := s.CreateDevice(t.Context(), device); !errors.Is(err, ErrNilDeviceUUID) {
@@ -133,7 +133,7 @@ func TestGetDeviceEdgeCase(t *testing.T) {
 
 // Invalid case: GetDevice returns ErrDeviceNotFound for an unknown ID.
 func TestGetDeviceInvalidCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	_, err := s.GetDevice(t.Context(), uuid.New())
 	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("GetDevice() error = %v, want ErrDeviceNotFound", err)
@@ -142,7 +142,7 @@ func TestGetDeviceInvalidCase(t *testing.T) {
 
 // Regular case: CreateDevice adds a device and returns the created value.
 func TestCreateDevice(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Relay A", "192.0.2.1")
 
 	got, err := s.CreateDevice(t.Context(), device)
@@ -162,7 +162,7 @@ func TestCreateDevice(t *testing.T) {
 
 // Edge case: CreateDevice allows a new device to reuse values from a soft-deleted device.
 func TestCreateDeviceEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	deleted := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), deleted); err != nil {
 		t.Fatalf("CreateDevice(deleted) error = %v", err)
@@ -201,7 +201,7 @@ func TestCreateDeviceInvalidCase(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := NewStore(t.Context())
+			s := NewStore()
 			existing := testDevice("Relay A", "192.0.2.1")
 			if _, err := s.CreateDevice(t.Context(), existing); err != nil {
 				t.Fatalf("CreateDevice(existing) error = %v", err)
@@ -226,7 +226,7 @@ func TestUpdateDeviceUsesInjectedClock(t *testing.T) {
 		t.Fatalf("time.Parse() error = %v", err)
 	}
 
-	store := NewStore(t.Context()) // Create new store
+	store := NewStore()            // Create new store
 	store.now = func() time.Time { // Set store's clock to injected clock
 		return now
 	}
@@ -264,7 +264,7 @@ func TestDeleteDevice(t *testing.T) {
 	}
 
 	// New store, set s.now to fixed time
-	s := NewStore(t.Context())
+	s := NewStore()
 	s.now = func() time.Time { return now }
 	// Make new device
 	device := testDevice("Relay A", "192.0.2.1")
@@ -296,7 +296,7 @@ func TestDeleteDevice(t *testing.T) {
 
 // Edge case: DeleteDevice rejects deleting an already-deleted device.
 func TestDeleteDeviceEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Make device and ensure it is created in Store
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -314,14 +314,14 @@ func TestDeleteDeviceEdgeCase(t *testing.T) {
 
 // Invalid case: DeleteDevice returns ErrDeviceNotFound for an unknown device.
 func TestDeleteDeviceInvalidCase(t *testing.T) {
-	if err := NewStore(t.Context()).DeleteDevice(t.Context(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
+	if err := NewStore().DeleteDevice(t.Context(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("DeleteDevice() error = %v, want ErrDeviceNotFound", err)
 	}
 }
 
 // Regular case: A deleted device's name and IP can be reused.
 func TestCreateDeviceAfterDelete(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Make device and ensure it is created in Store
 	deleted := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), deleted); err != nil {
@@ -340,7 +340,7 @@ func TestCreateDeviceAfterDelete(t *testing.T) {
 
 // Regular case: UpdateDevice applies an edit and preserves the device ID.
 func TestUpdateDevice(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Make device and ensure it is created in Store
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -364,7 +364,7 @@ func TestUpdateDevice(t *testing.T) {
 
 // Edge case: UpdateDevice rejects unknown and deleted device IDs.
 func TestUpdateDeviceNotFound(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Update device but with unknown UUID.
 	if _, err := s.UpdateDevice(t.Context(), uuid.New(), func(device model.Device) (model.Device, error) {
 		return device, nil
@@ -391,7 +391,7 @@ func TestUpdateDeviceNotFound(t *testing.T) {
 
 // Invalid case: UpdateDevice returns the edit error without saving changes.
 func TestUpdateDeviceEditError(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Relay A", "192.0.2.1")
 	// Make device and ensure it is created in Store
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -441,7 +441,7 @@ func TestUpdateDeviceDuplicate(t *testing.T) {
 	// Add two devices to Store in each test
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			s := NewStore(t.Context())
+			s := NewStore()
 			first := testDevice("Relay A", "192.0.2.1")
 			second := testDevice("Relay B", "192.0.2.2")
 			// Ensure both devices are created in both tests
@@ -467,7 +467,7 @@ func TestUpdateDeviceDuplicate(t *testing.T) {
 
 // Invalid case: UpdateDevice rejects an edit that changes the device ID.
 func TestUpdateDeviceIDChange(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
 		t.Fatalf("CreateDevice() error = %v", err)
@@ -484,7 +484,7 @@ func TestUpdateDeviceIDChange(t *testing.T) {
 
 // Regular case: ListRules returns rules in name order.
 func TestListRules(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -513,7 +513,7 @@ func TestListRules(t *testing.T) {
 
 // Edge case: ListRules returns a non-nil empty slice for a device with no rules.
 func TestListRulesEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -530,7 +530,7 @@ func TestListRulesEdgeCase(t *testing.T) {
 // Invalid case: ListRules rejects an unknown device.
 func TestListRulesInvalidCase(t *testing.T) {
 	// New store with unknown device
-	rules, err := NewStore(t.Context()).ListRules(t.Context(), uuid.New())
+	rules, err := NewStore().ListRules(t.Context(), uuid.New())
 	if !errors.Is(err, ErrDeviceNotFound) || rules == nil || len(rules) != 0 {
 		t.Fatalf("ListRules() = %#v, %v; want empty slice and ErrDeviceNotFound", rules, err)
 	}
@@ -538,7 +538,7 @@ func TestListRulesInvalidCase(t *testing.T) {
 
 // Regular case: GetRule returns a rule belonging to the requested device.
 func TestGetRule(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and rule, and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -562,7 +562,7 @@ func TestGetRule(t *testing.T) {
 
 // Edge case: GetRule returns ErrRuleNotFound when a device has no rules.
 func TestGetRuleEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -579,7 +579,7 @@ func TestGetRuleEdgeCase(t *testing.T) {
 // Invalid case: GetRule rejects an unknown device.
 func TestGetRuleInvalidCase(t *testing.T) {
 	// Get rule with unknown device and rule, validate error
-	_, err := NewStore(t.Context()).GetRule(t.Context(), uuid.New(), uuid.New())
+	_, err := NewStore().GetRule(t.Context(), uuid.New(), uuid.New())
 	if !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("GetRule() error = %v, want ErrDeviceNotFound", err)
 	}
@@ -587,7 +587,7 @@ func TestGetRuleInvalidCase(t *testing.T) {
 
 // Regular case: CreateRule stores a rule and sets its timestamps.
 func TestCreateRule(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -613,7 +613,7 @@ func TestCreateRule(t *testing.T) {
 
 // Edge case: CreateRule rejects a nil rule UUID.
 func TestCreateRuleEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -631,7 +631,7 @@ func TestCreateRuleEdgeCase(t *testing.T) {
 
 // Invalid case: CreateRule rejects a duplicate rule name.
 func TestCreateRuleInvalidCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// New device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -653,7 +653,7 @@ func TestCreateRuleInvalidCase(t *testing.T) {
 
 // Regular case: UpdateRule applies an edit and preserves rule identity.
 func TestUpdateRule(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -682,7 +682,7 @@ func TestUpdateRule(t *testing.T) {
 
 // Edge case: UpdateRule returns the edit error without saving changes.
 func TestUpdateRuleEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -713,7 +713,7 @@ func TestUpdateRuleEdgeCase(t *testing.T) {
 
 // Invalid case: UpdateRule rejects an edit that changes the rule ID.
 func TestUpdateRuleInvalidCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -738,7 +738,7 @@ func TestUpdateRuleInvalidCase(t *testing.T) {
 
 // Regular case: DeleteRule removes an existing rule.
 func TestDeleteRule(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -762,7 +762,7 @@ func TestDeleteRule(t *testing.T) {
 
 // Edge case: DeleteRule rejects deleting a rule that is already absent.
 func TestDeleteRuleEdgeCase(t *testing.T) {
-	s := NewStore(t.Context())
+	s := NewStore()
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -778,7 +778,7 @@ func TestDeleteRuleEdgeCase(t *testing.T) {
 // Invalid case: DeleteRule rejects an unknown device.
 func TestDeleteRuleInvalidCase(t *testing.T) {
 	// Try and delete unknown rule from unknown device, validate error
-	if err := NewStore(t.Context()).DeleteRule(t.Context(), uuid.New(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
+	if err := NewStore().DeleteRule(t.Context(), uuid.New(), uuid.New()); !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("DeleteRule() error = %v, want ErrDeviceNotFound", err)
 	}
 }
