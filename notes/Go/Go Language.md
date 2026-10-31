@@ -449,3 +449,13 @@ type User struct {
     Email string `json:"email,omitempty" validate:"required,email"`
 }
 ```
+
+### Sorting
+
+To sort a slice:
+```
+sort.Slice(slice, func(i, j int) bool { // We are inside function definition
+	return slice[i].field < slice[j].field // IMPORTANT: This describes the ordering. This is saying that a field of i 
+										   // whose value is smaller than j's comes earlier in the list.
+})
+```
