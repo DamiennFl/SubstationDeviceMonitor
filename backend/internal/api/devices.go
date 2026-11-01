@@ -22,7 +22,7 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get deviceID from path string
-	deviceIDString := r.PathValue("deviceID")
+	deviceIDString := r.PathValue("device_id")
 	// Parse the UUID, return if it is invalid
 	deviceID, err := uuid.Parse(deviceIDString)
 	if err != nil {
@@ -128,7 +128,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get deviceID from path string
-	deviceIDString := r.PathValue("deviceID")
+	deviceIDString := r.PathValue("device_id")
 	// Parse the UUID, return if it is invalid
 	deviceID, err := uuid.Parse(deviceIDString)
 	if err != nil {
@@ -197,7 +197,7 @@ func (s *Server) deleteDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get deviceID from path string
-	deviceIDString := r.PathValue("deviceID")
+	deviceIDString := r.PathValue("device_id")
 	// Parse the UUID, return if it is invalid
 	deviceID, err := uuid.Parse(deviceIDString)
 	if err != nil {
@@ -213,6 +213,8 @@ func (s *Server) deleteDeviceHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Device not found", http.StatusNotFound)
 		case errors.Is(err, store.ErrDeviceAlreadyDeleted):
 			http.Error(w, "Device is already deleted", http.StatusConflict)
+		case errors.Is(err, store.ErrUnacknowledgedAlarm):
+			http.Error(w, "Unacknowledged alarm for device", http.StatusConflict)
 		default:
 			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
@@ -221,4 +223,24 @@ func (s *Server) deleteDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Return 204
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
+	// Error out if not GET method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// GetDevice through the deviceService
+	deviceList, _ := s.store.ListDevices(r.Context())
+
+	// Set return header to JSON content-type
+	w.Header().Set("Content-Type", "application/json")
+
+	// Try and encode device return to writer. Error out if error occurs, otherwise the device JSON will be written out.
+	if err := json.NewEncoder(w).Encode(deviceList); err != nil {
+		log.Printf("failed to encode device response: %v", err)
+		return
+	}
 }

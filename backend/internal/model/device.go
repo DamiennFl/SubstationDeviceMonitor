@@ -8,7 +8,7 @@ import (
 
 // Device represents a monitored device.
 type Device struct {
-	ID            uuid.UUID    `json:"id"`                      // Unique UUID
+	ID            uuid.UUID    `json:"deviceId"`                // Unique UUID
 	Name          string       `json:"name"`                    // Name
 	IP            string       `json:"ip"`                      // IP Address
 	DeviceType    DeviceType   `json:"type"`                    // Device Type
