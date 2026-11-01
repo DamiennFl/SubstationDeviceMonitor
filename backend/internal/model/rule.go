@@ -11,7 +11,7 @@ type Rule struct {
 	ID          uuid.UUID   `json:"id"`                   // Rule ID
 	DeviceID    uuid.UUID   `json:"deviceId"`             // Mapped Device ID
 	Name        string      `json:"name"`                 // Rule Name
-	Enabled     *bool       `json:"enabled"`              // Is Rule Enabled
+	Enabled     bool        `json:"enabled"`              // Is Rule Enabled
 	Type        RuleType    `json:"type"`                 // Type of Rule (threshold, band, status)
 	Measurement Measurement `json:"measurement"`          // Measurement Name from Device
 	Comparison  *Comparison `json:"comparison,omitempty"` // Comparison (GT or LT)

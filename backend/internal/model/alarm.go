@@ -18,6 +18,12 @@ type Alarm struct {
 	RuleSnapshot RuleSnapshot `json:"ruleSnapshot"`          // Snapshot of Rule which triggered Alarm
 }
 
+// AlarmWithAcknowledgement pairs an alarm with its persisted acknowledgement, if any.
+type AlarmWithAcknowledgement struct {
+	Alarm           Alarm            `json:"alarm"`
+	Acknowledgement *Acknowledgement `json:"acknowledgement,omitempty"`
+}
+
 // RuleSnapshot preserves the rule fields that explain why an alarm fired.
 type RuleSnapshot struct {
 	Name        string      `json:"name"`

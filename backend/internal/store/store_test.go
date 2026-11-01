@@ -24,6 +24,7 @@ func testRule(deviceID uuid.UUID, name string) model.Rule {
 		ID:       uuid.New(),
 		DeviceID: deviceID,
 		Name:     name,
+		Enabled:  true,
 	}
 }
 
@@ -821,6 +822,9 @@ func TestListAlarms(t *testing.T) {
 	if _, err := s.RaiseAlarm(t.Context(), newer); err != nil {
 		t.Fatalf("RaiseAlarm(newer) error = %v", err)
 	}
+	if _, err := s.AcknowledgeAlarm(t.Context(), newer, model.Acknowledgement{AcknowledgedBy: "operator"}); err != nil {
+		t.Fatalf("AcknowledgeAlarm() error = %v", err)
+	}
 	// List alarms
 	alarms, err := s.ListAlarms(t.Context(), device.ID)
 	// Ensure no error during list
@@ -828,7 +832,9 @@ func TestListAlarms(t *testing.T) {
 		t.Fatalf("ListAlarms() error = %v", err)
 	}
 	// Validate list result. First alarm in the list should be the newest (by time) alarm.
-	if len(alarms) != 2 || alarms[0].ID != newer.ID || alarms[1].ID != older.ID {
+	if len(alarms) != 2 || alarms[0].Alarm.ID != newer.ID || alarms[1].Alarm.ID != older.ID ||
+		alarms[0].Acknowledgement == nil || alarms[0].Acknowledgement.AcknowledgedBy != "operator" ||
+		alarms[1].Acknowledgement != nil {
 		t.Fatalf("ListAlarms() = %#v, want newest alarm first", alarms)
 	}
 }
@@ -1004,6 +1010,8 @@ func TestClearAlarmInvalidCase(t *testing.T) {
 // Regular case: AcknowledgeAlarm stores an acknowledgement for the exact alarm.
 func TestAcknowledgeAlarm(t *testing.T) {
 	s := NewStore()
+	acknowledgedAt := time.Date(2026, 10, 31, 16, 0, 0, 0, time.UTC)
+	s.now = func() time.Time { return acknowledgedAt }
 	// Create device and validate
 	device := testDevice("Relay A", "192.0.2.1")
 	if _, err := s.CreateDevice(t.Context(), device); err != nil {
@@ -1022,7 +1030,7 @@ func TestAcknowledgeAlarm(t *testing.T) {
 	// New acknowledgement, normally would come from API through input struct
 	ack := model.Acknowledgement{
 		AcknowledgedBy: "operator",
-		AcknowledgedAt: time.Now().UTC(),
+		AcknowledgedAt: time.Time{},
 	}
 
 	// Acknowledge Alarm, ensure no error
@@ -1036,7 +1044,7 @@ func TestAcknowledgeAlarm(t *testing.T) {
 	}
 	// Check acknowledgements list, validate acknowledgement tied to alarm
 	stored, ok := s.acknowledgements[alarm.ID]
-	if !ok || stored.AlarmID != alarm.ID || stored.AcknowledgedBy != ack.AcknowledgedBy || !stored.AcknowledgedAt.Equal(ack.AcknowledgedAt) {
+	if !ok || stored.AlarmID != alarm.ID || stored.AcknowledgedBy != ack.AcknowledgedBy || !stored.AcknowledgedAt.Equal(acknowledgedAt) {
 		t.Fatalf("acknowledgements[%v] = %#v, want %#v", alarm.ID, stored, ack)
 	}
 }

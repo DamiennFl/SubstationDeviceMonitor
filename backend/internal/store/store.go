@@ -29,6 +29,7 @@ var (
 	ErrExistingRaisedAlarm      = errors.New("existing raised alarm for rule was found")
 	ErrNoAssociatedRule         = errors.New("no associated rule was set for alarm")
 	ErrAlarmAlreadyAcknowledged = errors.New("alarm is already acknowledged")
+	ErrUnacknowledgedAlarm      = errors.New("active alarm must be acknowledged before deletion")
 )
 
 // Store holds device data and protects it from concurrent access.
@@ -37,7 +38,7 @@ type Store struct {
 	devices          map[uuid.UUID]model.Device          // Device map
 	rules            map[uuid.UUID][]model.Rule          // Rules: Device ID maps to list of Rules
 	alarms           map[uuid.UUID][]model.Alarm         // Alarms: Device ID maps to list of Alarms
-	acknowledgements map[uuid.UUID]model.Acknowledgement // Acknowledgements: Alarm ID maps to list of Acknowledgements
+	acknowledgements map[uuid.UUID]model.Acknowledgement // Acknowledgements: Alarm ID maps to its Acknowledgement
 	readings         map[uuid.UUID][]model.Reading       // Readings: Device ID maps to list of Readings
 	now              func() time.Time                    // Current time, replaceable in tests
 }
@@ -176,7 +177,10 @@ func (s *Store) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
 	// Get time
 	currentTime := s.now()
 
-	// TODO: Check acknowledgements and return if necessary
+	// Return error if device has unacknowledged active alarm.
+	if s.hasUnacknowledgedActiveAlarm(deviceID, nil) {
+		return ErrUnacknowledgedAlarm
+	}
 
 	// Clear all Alarms
 	for index, alarm := range s.alarms[deviceID] {
@@ -386,10 +390,8 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 
 	currentTime := s.now()
 
-	// TODO: Check acknowledgements and return if necessary
-
 	// Rule has been disabled, clear alarm
-	if newRule.Enabled != nil && *newRule.Enabled == false {
+	if !newRule.Enabled {
 		s.clearActiveAlarm(deviceID, ruleID, currentTime, model.ClearReasonRuleDisabled)
 	}
 
@@ -404,8 +406,6 @@ func (s *Store) UpdateRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 
 // DeleteRule deletes a rule from a device's list of rules.
 func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.UUID) error {
-
-	// TODO: Once Alarm logic is implemented, add check to ensure Rules with active Alarms cannot be deleted.
 
 	// Lock and Unlock
 	s.mu.Lock()
@@ -443,9 +443,12 @@ func (s *Store) DeleteRule(ctx context.Context, deviceID uuid.UUID, ruleID uuid.
 		return ErrRuleNotFound
 	}
 
-	currentTime := s.now()
+	// Return error if rule has unacknowledged alarm (s)
+	if s.hasUnacknowledgedActiveAlarm(deviceID, &ruleID) {
+		return ErrUnacknowledgedAlarm
+	}
 
-	// TODO: Check acknowledgements and return if necessary
+	currentTime := s.now()
 
 	// Clear all Alarms
 	for index, alarm := range s.alarms[deviceID] {
@@ -490,29 +493,40 @@ func hasDuplicateRule(rule model.Rule, rules []model.Rule, excludedID *uuid.UUID
 // Alarm Functions
 //----------------------------------------------------------------------------------
 
-func (s *Store) ListAlarms(ctx context.Context, deviceID uuid.UUID) ([]model.Alarm, error) {
+func (s *Store) ListAlarms(ctx context.Context, deviceID uuid.UUID) ([]model.AlarmWithAcknowledgement, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	// Check that device actually exists first, before getting alarms
 	device, ok := s.devices[deviceID]
 	if !ok || device.DeletedAt != nil {
-		return []model.Alarm{}, ErrDeviceNotFound
+		return []model.AlarmWithAcknowledgement{}, ErrDeviceNotFound
 	}
 
 	// Get Alarm list, can be empty
 	alarmList, ok := s.alarms[deviceID]
 
 	if !ok { // No list of Alarms, but that is valid. Return empty list with no error
-		return []model.Alarm{}, nil
+		return []model.AlarmWithAcknowledgement{}, nil
 	}
 
 	// Make new list copy
-	returnAlarmList := make([]model.Alarm, 0, len(alarmList))
+	returnAlarmList := make([]model.AlarmWithAcknowledgement, 0, len(alarmList))
 
 	// Copy alarms into the result slice
 	for _, alarm := range alarmList {
-		returnAlarmList = append(returnAlarmList, alarm)
+		// Get alarm acknowledgement state
+		acknowledgement, acknowledged := s.acknowledgements[alarm.ID]
+		var acknowledgementPtr *model.Acknowledgement
+		// If acknowledged, set acknowledgement pointer. Will be nil if alarm is not acknowledged
+		if acknowledged {
+			acknowledgementPtr = &acknowledgement
+		}
+		// Add alarm, ack pair to return list
+		returnAlarmList = append(returnAlarmList, model.AlarmWithAcknowledgement{
+			Alarm:           alarm,
+			Acknowledgement: acknowledgementPtr,
+		})
 	}
 
 	return returnAlarmList, nil // Return alarms newest first
@@ -633,6 +647,7 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, alarm model.Alarm, ack mod
 	}
 
 	ack.AlarmID = alarm.ID
+	ack.AcknowledgedAt = s.now()
 	s.acknowledgements[alarm.ID] = ack
 
 	newAlarm := alarmList[alarmIndex]
@@ -648,6 +663,28 @@ func (s *Store) findActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID) (int, bool
 	}
 
 	return -1, false
+}
+
+// hasUnacknowledgedActiveAlarm reports whether a device or specific rule has an
+// active alarm without a corresponding acknowledgement.
+func (s *Store) hasUnacknowledgedActiveAlarm(deviceID uuid.UUID, ruleID *uuid.UUID) bool {
+	// Iterate alarms for device
+	for _, alarm := range s.alarms[deviceID] {
+		// Skip cleared alarms
+		if alarm.ClearedAt != nil {
+			continue
+		}
+		// Skip non-matching rules for ruleID (optional)
+		if ruleID != nil && (alarm.RuleID == nil || *alarm.RuleID != *ruleID) {
+			continue
+		}
+		// Found alarm, get acknowledged state. If not acknowledged, return true.
+		if _, acknowledged := s.acknowledgements[alarm.ID]; !acknowledged {
+			return true
+		}
+	}
+
+	return false
 }
 
 // clearActiveAlarm is a helper to clear an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.
