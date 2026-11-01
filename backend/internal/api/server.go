@@ -17,8 +17,10 @@ func NewServer(deviceService DeviceService) *Server {
 }
 
 // Define Routes for server
+// Runs once on startup, to register Routes. Then everything is handled by mux it returns.
+// The mux matches the method and path, then calls the handler.
 func (server *Server) Routes() http.Handler {
-	// New mutex
+	// New multiplexer
 	mux := http.NewServeMux()
 
 	// Handle GET device

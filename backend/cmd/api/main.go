@@ -17,6 +17,6 @@ func main() {
 	// Create Server with new DeviceService
 	server := api.NewServer(deviceService)
 
-	// Listen and serve server.Routes, from home page of app.
-	log.Fatal(http.ListenAndServe("/", server.Routes()))
+	// Listen and serve server.Routes, right now at localhost. Later will be at home page URL.
+	log.Fatal(http.ListenAndServe("localhost:8080", server.Routes()))
 }

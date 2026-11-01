@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
@@ -40,30 +41,34 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get deviceID from path string
 	deviceIDString := r.PathValue("deviceID")
+	// Parse the UUID, return if it is invalid
 	deviceID, err := uuid.Parse(deviceIDString)
 	if err != nil {
 		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
 		return
 	}
 
+	// GetDevice through the deviceService
 	device, err := s.deviceService.GetDevice(r.Context(), deviceID)
 
-	// Return generic error, do not want to expose internal error.
+	// Return generic error if device is not found, do not want to expose internal error.
 	if errors.Is(err, store.ErrDeviceNotFound) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
+		// If any other error, return unexpected error
 	} else if err != nil {
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	// Set return header to JSON content-type
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
 
+	// Try and encode device return to writer. Error out if error occurs, otherwise the device JSON will be written out.
 	if err := json.NewEncoder(w).Encode(device); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		log.Printf("failed to encode device response: %v", err)
 		return
 	}
-
 }
