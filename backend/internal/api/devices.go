@@ -11,15 +11,27 @@ import (
 	"github.com/google/uuid"
 )
 
+// DeviceService interface. Defines the functions DeviceService can call
 type DeviceService interface {
 	GetDevice(ctx context.Context, deviceID uuid.UUID) (model.Device, error)
-	ListDevices(ctx context.Context) ([]model.Device, error)
-	CreateDevice(ctx context.Context, device model.Device) (model.Device, error)
-	UpdateDevice(ctx context.Context, deviceID uuid.UUID, edit func(device model.Device) (model.Device, error)) (model.Device, error)
-	DeleteDevice(ctx context.Context, deviceID uuid.UUID) error
 }
 
-// GetDevice
+// Internal deviceService, with a reference to the Store
+type deviceService struct {
+	store *store.Store
+}
+
+// DeviceService constructor which initializes Store pointer for modification
+func NewDeviceService(store *store.Store) DeviceService {
+	return &deviceService{store: store}
+}
+
+// GetDevice function which matches the function definition in internal Store
+func (s *deviceService) GetDevice(ctx context.Context, deviceID uuid.UUID) (model.Device, error) {
+	return s.store.GetDevice(ctx, deviceID)
+}
+
+// getDeviceHandler which actually handles getting device, errors, and returning JSON
 func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Error out if not GET method
@@ -41,8 +53,9 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, store.ErrDeviceNotFound) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
-	} else {
+	} else if err != nil {
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

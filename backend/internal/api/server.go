@@ -2,25 +2,26 @@ package api
 
 import (
 	"net/http"
-
-	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 )
 
+// Define Server with services
 type Server struct {
-	store         store.Store
 	deviceService DeviceService
 }
 
+// Server constructor
 func NewServer(deviceService DeviceService) *Server {
 	return &Server{
-		store:         *store.NewStore(),
 		deviceService: deviceService,
 	}
 }
 
-func (server *Server) ListenAndServe() http.Handler {
+// Define Routes for server
+func (server *Server) Routes() http.Handler {
+	// New mutex
 	mux := http.NewServeMux()
 
+	// Handle GET device
 	mux.HandleFunc("GET /api/devices/{deviceID}", server.getDeviceHandler)
 	return mux
 }
