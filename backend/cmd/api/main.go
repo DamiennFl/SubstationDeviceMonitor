@@ -12,11 +12,9 @@ import (
 func main() {
 	// Create new Store
 	appStore := store.NewStore()
-	// Create new DeviceService
-	deviceService := api.NewDeviceService(appStore)
 	// Create Server with new DeviceService
-	server := api.NewServer(deviceService)
+	server := api.NewServer(appStore)
 
 	// Listen and serve server.Routes, right now at localhost. Later will be at home page URL.
-	log.Fatal(http.ListenAndServe("localhost:8080", server.Routes()))
+	log.Fatal(http.ListenAndServe(":8080", server.Routes()))
 }

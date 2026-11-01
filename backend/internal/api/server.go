@@ -2,17 +2,19 @@ package api
 
 import (
 	"net/http"
+
+	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 )
 
 // Define Server with services
 type Server struct {
-	deviceService DeviceService
+	store *store.Store
 }
 
 // Server constructor
-func NewServer(deviceService DeviceService) *Server {
+func NewServer(store *store.Store) *Server {
 	return &Server{
-		deviceService: deviceService,
+		store: store,
 	}
 }
 
