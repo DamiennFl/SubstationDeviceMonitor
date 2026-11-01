@@ -790,8 +790,10 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 		device.LatestReading = &reading
 	}
 
+	currentTime := s.now()
+
 	// Set LastSeen time to reading timestamp to match device
-	device.LastSeen = &reading.Timestamp
+	device.LastSeen = &currentTime
 
 	// Update device ref
 	s.devices[reading.DeviceID] = device
@@ -835,7 +837,7 @@ func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time
 	returnReadingsList := make([]model.Reading, 0)
 
 	for _, reading := range readingsList {
-		if !reading.Timestamp.Before(start) && reading.Timestamp.After(end) {
+		if !reading.Timestamp.Before(start) && !reading.Timestamp.After(end) {
 			returnReadingsList = slices.Insert(returnReadingsList, 0, reading) // Insert newer first since list is approximately sorted.
 		}
 	}
