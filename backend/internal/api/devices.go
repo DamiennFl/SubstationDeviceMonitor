@@ -17,7 +17,8 @@ type DeviceService interface {
 	GetDevice(ctx context.Context, deviceID uuid.UUID) (model.Device, error)
 }
 
-// getDeviceHandler which actually handles getting device, errors, and returning JSON
+// getDeviceHandler handles getting device, errors, and returning JSON
+// Handles "GET /api/device/{device_id}" via store.GetDevice
 func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Error out if not GET method
@@ -55,5 +56,62 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(device); err != nil {
 		log.Printf("failed to encode device response: %v", err)
 		return
+	}
+}
+
+// createDeviceHandler handles decoding JSON, creating device, and errors.
+// Handles "POST /api/device" via store.CreateDevice
+func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	// Validate method
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	/* type CreateDeviceInput struct {
+	Name       string     `json:"name"`
+	IP         string     `json:"ip"`
+	DeviceType DeviceType `json:"type"`
+	}
+	*/
+	var deviceInput model.CreateDeviceInput
+
+	err := json.NewDecoder(r.Body).Decode(&deviceInput)
+
+	if err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	device := model.Device{
+		ID:         uuid.New(),
+		Name:       deviceInput.Name,
+		IP:         deviceInput.IP,
+		DeviceType: deviceInput.DeviceType,
+	}
+
+	createdDevice, err := s.store.CreateDevice(r.Context(), device)
+
+	if err != nil {
+		if errors.Is(err, store.ErrDuplicateDevice) {
+			http.Error(w, "Device with that name or IP already exists", http.StatusConflict)
+			return
+		}
+
+		if errors.Is(err, store.ErrNilDeviceUUID) {
+			http.Error(w, "Could not create device ID", http.StatusInternalServerError)
+			return
+		}
+
+		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(createdDevice); err != nil {
+		log.Printf("failed to encode created device response: %v", err)
 	}
 }

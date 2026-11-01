@@ -27,5 +27,6 @@ func (server *Server) Routes() http.Handler {
 
 	// Handle GET device
 	mux.HandleFunc("GET /api/devices/{deviceID}", server.getDeviceHandler)
+	mux.HandleFunc("POST /api/devices", server.createDeviceHandler)
 	return mux
 }

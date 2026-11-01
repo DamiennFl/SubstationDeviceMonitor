@@ -119,6 +119,9 @@ func (s *Store) CreateDevice(ctx context.Context, device model.Device) (model.De
 	device.CreatedAt = now
 	device.UpdatedAt = now
 
+	// Set status
+	device.Status = s.currentDeviceStatus(device)
+
 	s.devices[device.ID] = device // Set device
 
 	return device, nil // Return it
@@ -160,6 +163,9 @@ func (s *Store) UpdateDevice(ctx context.Context, deviceID uuid.UUID, edit func(
 
 	// Update updated time to now
 	newDevice.UpdatedAt = s.now()
+
+	// Update status
+	newDevice.Status = s.currentDeviceStatus(newDevice)
 
 	s.devices[deviceID] = newDevice
 
