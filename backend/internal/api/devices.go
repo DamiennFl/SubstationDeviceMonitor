@@ -80,6 +80,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Make new decoder with a 1MB limit
 	decoder := json.NewDecoder(io.LimitReader(r.Body, maxBodySize))
+	decoder.DisallowUnknownFields()
 
 	// Decode into deviceInput, handle error
 	if err := decoder.Decode(&deviceInput); err != nil {
@@ -115,7 +116,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	device := model.Device{
 		ID:         uuid.New(),
 		Name:       deviceInput.Name,
-		IP:         deviceInput.IP,
+		IP:         string(net.ParseIP(deviceInput.IP)),
 		DeviceType: deviceInput.DeviceType,
 	}
 
@@ -173,6 +174,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	var deviceInput model.UpdateDeviceInput
 	// Make new decoder with a 1MB limit
 	decoder := json.NewDecoder(io.LimitReader(r.Body, maxBodySize))
+	decoder.DisallowUnknownFields()
 
 	// Decode into deviceInput, handle error
 	if err := decoder.Decode(&deviceInput); err != nil {
@@ -206,7 +208,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 				device.Name = *deviceInput.Name
 			}
 			if deviceInput.IP != nil {
-				device.IP = *deviceInput.IP
+				device.IP = string(net.ParseIP(*deviceInput.IP))
 			}
 			return device, nil
 		})
