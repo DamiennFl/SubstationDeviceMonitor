@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -12,12 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// DeviceService interface. Defines the functions DeviceService can call
-type DeviceService interface {
-	GetDevice(ctx context.Context, deviceID uuid.UUID) (model.Device, error)
-}
-
-// getDeviceHandler handles getting device, errors, and returning JSON
+// getDeviceHandler handles getting device
 // Handles "GET /api/device/{device_id}" via store.GetDevice
 func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -59,14 +53,16 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// createDeviceHandler handles decoding JSON, creating device, and errors.
+// createDeviceHandler handles creating device.
 // Handles "POST /api/device" via store.CreateDevice
 func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
+	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
 	defer r.Body.Close()
 
 	// Validate method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
 	/* type CreateDeviceInput struct {
@@ -77,13 +73,16 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	var deviceInput model.CreateDeviceInput
 
+	// Decode POST request body into deviceInput
 	err := json.NewDecoder(r.Body).Decode(&deviceInput)
 
+	// If decoding produced error, error out
 	if err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
 
+	// Define new Device with deviceInput fields
 	device := model.Device{
 		ID:         uuid.New(),
 		Name:       deviceInput.Name,
@@ -91,27 +90,135 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		DeviceType: deviceInput.DeviceType,
 	}
 
+	// Create Device in Store
 	createdDevice, err := s.store.CreateDevice(r.Context(), device)
 
+	// If error during Device creation, print corresponding error
 	if err != nil {
-		if errors.Is(err, store.ErrDuplicateDevice) {
+		switch {
+		case errors.Is(err, store.ErrDuplicateDevice):
 			http.Error(w, "Device with that name or IP already exists", http.StatusConflict)
-			return
+		case errors.Is(err, store.ErrNilDeviceUUID):
+			http.Error(w, "Could not create device ID", http.StatusConflict)
+		default:
+			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
-
-		if errors.Is(err, store.ErrNilDeviceUUID) {
-			http.Error(w, "Could not create device ID", http.StatusInternalServerError)
-			return
-		}
-
-		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	// Return newly created device encoded into JSON; will be used by frontend to display
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(createdDevice); err != nil {
 		log.Printf("failed to encode created device response: %v", err)
 	}
+}
+
+// updateDeviceHandler handles updating device
+// Handles "PATCH /api/device/{device_id}" via Store.UpdateDevice
+func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
+	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
+	defer r.Body.Close()
+
+	// Validate method
+	if r.Method != http.MethodPatch {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get deviceID from path string
+	deviceIDString := r.PathValue("deviceID")
+	// Parse the UUID, return if it is invalid
+	deviceID, err := uuid.Parse(deviceIDString)
+	if err != nil {
+		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	/* type UpdateDeviceInput struct {
+	Name *string `json:"name"`
+	IP   *string `json:"ip"`
+	}
+	*/
+	var deviceInput model.UpdateDeviceInput
+
+	// Decode POST request body into deviceInput
+	err = json.NewDecoder(r.Body).Decode(&deviceInput)
+
+	// If decoding produced error, error out
+	if err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	updatedDevice, err := s.store.UpdateDevice(
+		r.Context(),
+		deviceID,
+		func(device model.Device) (model.Device, error) {
+			if deviceInput.Name != nil {
+				device.Name = *deviceInput.Name
+			}
+			if deviceInput.IP != nil {
+				device.IP = *deviceInput.IP
+			}
+			return device, nil
+		})
+
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrDeviceNotFound):
+			http.Error(w, "Device not found", http.StatusNotFound)
+		case errors.Is(err, store.ErrDuplicateDevice):
+			http.Error(w, "Device with that name or IP already exists", http.StatusConflict)
+		default:
+			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Return the updated device encoded into JSON.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(updatedDevice); err != nil {
+		log.Printf("failed to encode updated device response: %v", err)
+	}
+}
+
+// deleteDeviceHandler handles deleting device.
+// Handles "DELETE /api/device/{device_id}"
+func (s *Server) deleteDeviceHandler(w http.ResponseWriter, r *http.Request) {
+
+	// Validate method
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get deviceID from path string
+	deviceIDString := r.PathValue("deviceID")
+	// Parse the UUID, return if it is invalid
+	deviceID, err := uuid.Parse(deviceIDString)
+	if err != nil {
+		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	err = s.store.DeleteDevice(r.Context(), deviceID)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrDeviceNotFound):
+			http.Error(w, "Device not found", http.StatusNotFound)
+		case errors.Is(err, store.ErrDeviceAlreadyDeleted):
+			http.Error(w, "Device is already deleted", http.StatusConflict)
+		default:
+			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Return 204
+	w.WriteHeader(http.StatusNoContent)
 }

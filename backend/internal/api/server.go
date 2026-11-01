@@ -28,5 +28,7 @@ func (server *Server) Routes() http.Handler {
 	// Handle GET device
 	mux.HandleFunc("GET /api/devices/{deviceID}", server.getDeviceHandler)
 	mux.HandleFunc("POST /api/devices", server.createDeviceHandler)
+	mux.HandleFunc("PATCH /api/devices/{deviceID}", server.updateDeviceHandler)
+	mux.HandleFunc("DELETE /api/devices/{device_id}", server.deleteDeviceHandler)
 	return mux
 }
