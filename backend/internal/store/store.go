@@ -30,6 +30,9 @@ var (
 	ErrNoAssociatedRule         = errors.New("no associated rule was set for alarm")
 	ErrAlarmAlreadyAcknowledged = errors.New("alarm is already acknowledged")
 	ErrUnacknowledgedAlarm      = errors.New("active alarm must be acknowledged before deletion")
+
+	ErrDuplicateReading      = errors.New("duplicate reading found")
+	ErrReadingEndBeforeStart = errors.New("end time filter is before start time for reading list")
 )
 
 // Store holds device data and protects it from concurrent access.
@@ -204,8 +207,6 @@ func (s *Store) DeleteDevice(ctx context.Context, deviceID uuid.UUID) error {
 
 // hasDuplicateDevice checks active devices for a matching name or IP.
 func (s *Store) hasDuplicateDevice(device model.Device, excludedID *uuid.UUID) bool {
-
-	// TODO: Once Alarm logic is implemented, add check to ensure Devices with Rules with active Alarms cannot be deleted.
 
 	for _, existing := range s.devices { // Iterate devices
 		if existing.DeletedAt != nil { // Device has been deleted, skip
@@ -737,4 +738,112 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 	alarmList[index] = alarm
 
 	return alarm, nil
+}
+
+//----------------------------------------------------------------------------------
+// Reading Functions
+//----------------------------------------------------------------------------------
+
+// AddReading adds a reading to the list of readings for a device and updates the latest reading for a device.
+func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Reading, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Get device
+	device, ok := s.devices[reading.DeviceID]
+
+	// If no device, error
+	if !ok {
+		return model.Reading{}, ErrDeviceNotFound
+	}
+
+	// If device is soft-deleted, error
+	if device.DeletedAt != nil {
+		return model.Reading{}, ErrDeviceNotFound
+	}
+
+	// Get readings list
+	readingsList, exists := s.readings[reading.DeviceID]
+
+	// Init if doesn't exist
+	if !exists {
+		readingsList = make([]model.Reading, 0)
+	}
+
+	// Dup check on non-empty list
+	if len(readingsList) > 0 {
+		for _, existingReading := range readingsList {
+			if existingReading.Timestamp.Equal(reading.Timestamp) {
+				return model.Reading{}, ErrDuplicateReading
+			}
+		}
+	}
+
+	// Update latest reading based on timestamps. Compare if existing reading exists, else just set.
+	if device.LatestReading != nil {
+		var latestReading model.Reading
+		latestReading = *device.LatestReading
+		if reading.Timestamp.After(latestReading.Timestamp) {
+			device.LatestReading = &reading
+		}
+	} else {
+		device.LatestReading = &reading
+	}
+
+	// Set LastSeen time to reading timestamp to match device
+	device.LastSeen = &reading.Timestamp
+
+	// Update device ref
+	s.devices[reading.DeviceID] = device
+
+	// Insert at front of list
+	readingsList = slices.Insert(readingsList, 0, reading)
+
+	// Update list ref
+	s.readings[reading.DeviceID] = readingsList
+
+	// Return reading
+	return reading, nil
+}
+
+func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time.Time, end time.Time) ([]model.Reading, error) {
+	// TIME VALIDATION WILL BE IN API
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Get device
+	device, ok := s.devices[deviceID]
+
+	// If no device, error
+	if !ok {
+		return []model.Reading{}, ErrDeviceNotFound
+	}
+
+	// If device is soft-deleted, error
+	if device.DeletedAt != nil {
+		return []model.Reading{}, ErrDeviceNotFound
+	}
+
+	// Get readings list
+	readingsList, exists := s.readings[deviceID]
+
+	// No list, return empty with no error
+	if !exists {
+		return []model.Reading{}, nil
+	}
+
+	returnReadingsList := make([]model.Reading, 0)
+
+	for _, reading := range readingsList {
+		if !reading.Timestamp.Before(start) && reading.Timestamp.After(end) {
+			returnReadingsList = slices.Insert(returnReadingsList, 0, reading) // Insert newer first since list is approximately sorted.
+		}
+	}
+
+	// Sort in case of readings added in wrong order
+	sort.Slice(returnReadingsList, func(i, j int) bool {
+		return returnReadingsList[i].Timestamp.After(returnReadingsList[j].Timestamp)
+	})
+
+	return returnReadingsList, nil
 }
