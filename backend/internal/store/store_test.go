@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Use these functions to make object creation cleaner in tests.
 // testDevice minimal model
 func testDevice(name, ip string) model.Device {
 	return model.Device{
@@ -28,6 +29,7 @@ func testRule(deviceID uuid.UUID, name string) model.Rule {
 	}
 }
 
+// testAlarm minimal model
 func testAlarm(deviceID, ruleID uuid.UUID, raisedAt time.Time) model.Alarm {
 	return model.Alarm{
 		ID:       uuid.New(),
@@ -36,6 +38,19 @@ func testAlarm(deviceID, ruleID uuid.UUID, raisedAt time.Time) model.Alarm {
 		RaisedAt: raisedAt,
 	}
 }
+
+// testReading minimal model
+func testReading(deviceID uuid.UUID, timestamp time.Time, currentA float64) model.Reading {
+	return model.Reading{
+		DeviceID:  deviceID,
+		Timestamp: timestamp,
+		CurrentA:  currentA,
+	}
+}
+
+// Ways to improve this unit testing:
+//   - Invalid cases for all parameters
+//   - Lots of duplicate code for creating Store, devices, etc. Could use factories for objects, and singleton with some clearing method for Store.
 
 // Regular case: NewStore returns an initialized store with no devices.
 func TestNewStore(t *testing.T) {
@@ -1093,5 +1108,141 @@ func TestAcknowledgeAlarmInvalidCase(t *testing.T) {
 	// Try and acknowledge alarm, ensure AlarmNotFound error. Acknowledgement should not be wider scope than that.
 	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm, ack); !errors.Is(err, ErrAlarmNotFound) {
 		t.Fatalf("AcknowledgeAlarm() error = %v, want ErrAlarmNotFound", err)
+	}
+}
+
+// Regular case: AddReading stores a reading and updates the device metadata.
+func TestAddReading(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	// Create resding
+	seenAt := time.Date(2026, 10, 31, 12, 5, 0, 0, time.UTC)
+	s.now = func() time.Time { return seenAt }
+	reading := testReading(device.ID, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), 12.5)
+
+	// Add reading and ensure no error
+	got, err := s.AddReading(t.Context(), reading)
+	if err != nil {
+		t.Fatalf("AddReading() error = %v", err)
+	}
+	if got != reading {
+		t.Fatalf("AddReading() = %#v, want %#v", got, reading)
+	}
+
+	// Get device and ensure no error
+	stored, err := s.GetDevice(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("GetDevice() error = %v", err)
+	}
+	// Validate latest reading
+	if stored.LatestReading == nil || *stored.LatestReading != reading {
+		t.Fatalf("LatestReading = %#v, want %#v", stored.LatestReading, reading)
+	}
+	// Validate last seen value updated
+	if stored.LastSeen == nil || !stored.LastSeen.Equal(seenAt) {
+		t.Fatalf("LastSeen = %v, want %v", stored.LastSeen, seenAt)
+	}
+}
+
+// Edge case: AddReading rejects a second reading with the same timestamp.
+func TestAddReadingEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// Create reading and ensure no error
+	timestamp := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	reading := testReading(device.ID, timestamp, 12.5)
+	if _, err := s.AddReading(t.Context(), reading); err != nil {
+		t.Fatalf("AddReading(first) error = %v", err)
+	}
+
+	// Create duplicate reading
+	duplicate := testReading(device.ID, timestamp, 20.0)
+	// Ensure error occurs when trying to add duplicate
+	if _, err := s.AddReading(t.Context(), duplicate); !errors.Is(err, ErrDuplicateReading) {
+		t.Fatalf("AddReading(second) error = %v, want ErrDuplicateReading", err)
+	}
+	// Validate list contains only one
+	readings, err := s.ListReadings(t.Context(), device.ID, timestamp, timestamp)
+	if err != nil || len(readings) != 1 || readings[0] != reading {
+		t.Fatalf("ListReadings() = %#v, %v; want only original reading", readings, err)
+	}
+}
+
+// Invalid case: AddReading rejects an unknown device.
+func TestAddReadingInvalidCase(t *testing.T) {
+	// Create reading with unknown device
+	reading := testReading(uuid.New(), time.Now().UTC(), 12.5)
+	// Try to add reading, ensure error occurs
+	if _, err := NewStore().AddReading(t.Context(), reading); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("AddReading() error = %v, want ErrDeviceNotFound", err)
+	}
+}
+
+// Regular case: ListReadings returns readings in descending timestamp order within the range.
+func TestListReadings(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// Create 3 readings
+	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	readings := []model.Reading{
+		testReading(device.ID, base, 10),
+		testReading(device.ID, base.Add(2*time.Minute), 30),
+		testReading(device.ID, base.Add(time.Minute), 20),
+	}
+	// Add each reading, ensure no errors
+	for _, reading := range readings {
+		if _, err := s.AddReading(t.Context(), reading); err != nil {
+			t.Fatalf("AddReading() error = %v", err)
+		}
+	}
+
+	// List readings, ensure no errors
+	got, err := s.ListReadings(t.Context(), device.ID, base, base.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("ListReadings() error = %v", err)
+	}
+	// Validate readings, ensure 3 unique
+	if len(got) != 3 || got[0] != readings[1] || got[1] != readings[2] || got[2] != readings[0] {
+		t.Fatalf("ListReadings() = %#v, want readings newest first", got)
+	}
+}
+
+// Edge case: ListReadings returns a non-nil empty slice when no readings match the range.
+func TestListReadingsEdgeCase(t *testing.T) {
+	s := NewStore()
+	// Create device and validate
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+	// Create time
+	start := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	// List readings from time to time + 1hr, should give empty list
+	readings, err := s.ListReadings(t.Context(), device.ID, start, start.Add(time.Hour))
+	if err != nil || readings == nil || len(readings) != 0 {
+		t.Fatalf("ListReadings() = %#v, %v; want non-nil empty slice", readings, err)
+	}
+}
+
+// Invalid case: ListReadings rejects an unknown device.
+func TestListReadingsInvalidCase(t *testing.T) {
+	start := time.Now().UTC()
+	// Try and list readings of an unknown UUID, ensure error occurs and list does not exist
+	readings, err := NewStore().ListReadings(t.Context(), uuid.New(), start, start.Add(time.Hour))
+	if !errors.Is(err, ErrDeviceNotFound) || readings == nil || len(readings) != 0 {
+		t.Fatalf("ListReadings() = %#v, %v; want empty slice and ErrDeviceNotFound", readings, err)
 	}
 }

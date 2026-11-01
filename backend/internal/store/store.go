@@ -834,8 +834,10 @@ func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time
 		return []model.Reading{}, nil
 	}
 
+	// Make return list
 	returnReadingsList := make([]model.Reading, 0)
 
+	// Populate return list
 	for _, reading := range readingsList {
 		if !reading.Timestamp.Before(start) && !reading.Timestamp.After(end) {
 			returnReadingsList = slices.Insert(returnReadingsList, 0, reading) // Insert newer first since list is approximately sorted.
@@ -847,5 +849,6 @@ func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time
 		return returnReadingsList[i].Timestamp.After(returnReadingsList[j].Timestamp)
 	})
 
+	// Return
 	return returnReadingsList, nil
 }
