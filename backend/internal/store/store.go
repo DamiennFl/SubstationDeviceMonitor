@@ -74,6 +74,7 @@ func (s *Store) ListDevices(ctx context.Context) ([]model.Device, error) {
 		if device.DeletedAt != nil { // Check that device is not soft-deleted, skip if it is
 			continue
 		}
+		device.Status = s.currentDeviceStatus(device)
 		deviceList = append(deviceList, device) // Add device to list
 	}
 
@@ -93,6 +94,9 @@ func (s *Store) GetDevice(ctx context.Context, deviceID uuid.UUID) (model.Device
 	if !ok || device.DeletedAt != nil {
 		return model.Device{}, ErrDeviceNotFound // If it does not exist, return zero Device and error.
 	}
+
+	// Set status
+	device.Status = s.currentDeviceStatus(device)
 
 	return device, nil // Return device
 }
@@ -221,6 +225,19 @@ func (s *Store) hasDuplicateDevice(device model.Device, excludedID *uuid.UUID) b
 	}
 
 	return false
+}
+
+// currentDeviceStatus checks a device's status and updates accordingly.
+func (s *Store) currentDeviceStatus(device model.Device) model.DeviceStatus {
+	// No need to update device.Status in Store, because status is derived data.
+	// Also allows us to keep read lock with ListDevice and GetDevice, instead of having write lock.
+	if device.LastSeen == nil {
+		return model.DeviceStatusPending
+	}
+	if !s.now().Before(device.LastSeen.Add(time.Minute)) {
+		return model.DeviceStatusStale
+	}
+	return model.DeviceStatusOnline
 }
 
 //----------------------------------------------------------------------------------

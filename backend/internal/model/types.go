@@ -11,8 +11,9 @@ const (
 type DeviceStatus string
 
 const (
-	DeviceStatusOnline DeviceStatus = "online"
-	DeviceStatusStale  DeviceStatus = "stale"
+	DeviceStatusOnline  DeviceStatus = "online"  // Device online
+	DeviceStatusPending DeviceStatus = "pending" // Device pending, likely newly created
+	DeviceStatusStale   DeviceStatus = "stale"   // Device stale, haven't heard from it in 60 seconds
 )
 
 // RuleType identifies how a rule evaluates a measurement.
