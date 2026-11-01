@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
@@ -97,7 +98,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input fields
-	if deviceInput.Name == "" {
+	if strings.TrimSpace(deviceInput.Name) == "" {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
@@ -115,7 +116,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	// Define new Device with deviceInput fields
 	device := model.Device{
 		ID:         uuid.New(),
-		Name:       deviceInput.Name,
+		Name:       strings.TrimSpace(deviceInput.Name),
 		IP:         string(net.ParseIP(deviceInput.IP)),
 		DeviceType: deviceInput.DeviceType,
 	}
@@ -190,7 +191,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Validate input fields
-	if deviceInput.Name != nil && *deviceInput.Name == "" {
+	if deviceInput.Name != nil && strings.TrimSpace(*deviceInput.Name) == "" {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
@@ -205,7 +206,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		deviceID,
 		func(device model.Device) (model.Device, error) {
 			if deviceInput.Name != nil {
-				device.Name = *deviceInput.Name
+				device.Name = strings.TrimSpace(*deviceInput.Name)
 			}
 			if deviceInput.IP != nil {
 				device.IP = string(net.ParseIP(*deviceInput.IP))
