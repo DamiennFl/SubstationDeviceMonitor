@@ -7,6 +7,16 @@ const (
 	DeviceTypeRelay DeviceType = "relay"
 )
 
+// UPDATE THIS WITH NEW DEVICE TYPES AS NECESSARY
+func (d DeviceType) IsValid() bool {
+	switch d {
+	case DeviceTypeRelay:
+		return true
+	default:
+		return false
+	}
+}
+
 // DeviceStatus describes the current availability of a device.
 type DeviceStatus string
 

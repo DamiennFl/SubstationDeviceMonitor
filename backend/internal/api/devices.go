@@ -3,13 +3,18 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 	"github.com/google/uuid"
 )
+
+// Limit request body to 1 MB
+const maxBodySize = 1024 * 1024
 
 // getDeviceHandler handles getting device
 // Handles "GET /api/device/{device_id}" via store.GetDevice
@@ -73,11 +78,35 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 	var deviceInput model.CreateDeviceInput
 
-	// Decode POST request body into deviceInput
-	err := json.NewDecoder(r.Body).Decode(&deviceInput)
+	// Make new decoder with a 1MB limit
+	decoder := json.NewDecoder(io.LimitReader(r.Body, maxBodySize))
 
-	// If decoding produced error, error out
-	if err != nil {
+	// Decode into deviceInput, handle error
+	if err := decoder.Decode(&deviceInput); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	// Using &struct{}{} checks that only one JSON value was decoded.
+	// If more than one JSON value is present, Decode will return nil, instead of
+	// io.EOF.
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		http.Error(w, "Request body must contain one JSON object", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input fields
+	if deviceInput.Name == "" {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if net.ParseIP(deviceInput.IP) == nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if !deviceInput.DeviceType.IsValid() {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
@@ -99,7 +128,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrDuplicateDevice):
 			http.Error(w, "Device with that name or IP already exists", http.StatusConflict)
 		case errors.Is(err, store.ErrNilDeviceUUID):
-			http.Error(w, "Could not create device ID", http.StatusConflict)
+			http.Error(w, "Could not create device ID", http.StatusInternalServerError)
 		default:
 			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
@@ -142,12 +171,29 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	*/
 	var deviceInput model.UpdateDeviceInput
+	// Make new decoder with a 1MB limit
+	decoder := json.NewDecoder(io.LimitReader(r.Body, maxBodySize))
 
-	// Decode POST request body into deviceInput
-	err = json.NewDecoder(r.Body).Decode(&deviceInput)
+	// Decode into deviceInput, handle error
+	if err := decoder.Decode(&deviceInput); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
 
-	// If decoding produced error, error out
-	if err != nil {
+	// Using &struct{}{} checks that only one JSON value was decoded.
+	// If more than one JSON value is present, Decode will return nil, instead of
+	// io.EOF.
+	if decoder.Decode(&struct{}{}) != io.EOF {
+		http.Error(w, "Request body must contain one JSON object", http.StatusBadRequest)
+		return
+	}
+	// Validate input fields
+	if deviceInput.Name != nil && *deviceInput.Name == "" {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	if deviceInput.IP != nil && net.ParseIP(*deviceInput.IP) == nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
@@ -233,7 +279,12 @@ func (s *Server) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GetDevice through the deviceService
-	deviceList, _ := s.store.ListDevices(r.Context())
+	deviceList, err := s.store.ListDevices(r.Context())
+
+	// Does nothing for now: Will be useful when Postgres is implemented
+	if err != nil {
+		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+	}
 
 	// Set return header to JSON content-type
 	w.Header().Set("Content-Type", "application/json")
