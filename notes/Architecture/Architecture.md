@@ -7,7 +7,7 @@ API Server -> Browser: How the readings are updated and displayed, live updates
 
 ### Components List
  - React + Typescript frontend, served by nginx
- - Go API
+ - Go API and backend
  - Go simulator
  - Postgres database
  - Ingress routing
