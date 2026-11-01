@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -19,7 +20,14 @@ type DeviceService interface {
 }
 
 // GetDevice
-func (s *Server) getDevice(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
+
+	// Error out if not GET method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	deviceIDString := r.PathValue("deviceID")
 	deviceID, err := uuid.Parse(deviceIDString)
 	if err != nil {
@@ -35,6 +43,14 @@ func (s *Server) getDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(device); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
 	}
 
 }
