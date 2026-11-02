@@ -60,7 +60,7 @@ func (s *Server) getRuleHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Try and encode rule return to writer. Error out if error occurs, otherwise the rule JSON will be written out.
 	if err := json.NewEncoder(w).Encode(rule); err != nil {
-		log.Printf("failed to encode device response: %v", err)
+		log.Printf("failed to encode rule response: %v", err)
 		return
 	}
 }
@@ -215,7 +215,7 @@ func (s *Server) createRuleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Define new Rule with deviceInput fields
+	// Define new Rule with ruleInput fields
 	rule := model.Rule{
 		ID:          uuid.New(),
 		DeviceID:    deviceID,
@@ -249,12 +249,12 @@ func (s *Server) createRuleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return newly created createdRule encoded into JSON; will be used by frontend to display
+	// Return newly created Rule encoded into JSON; will be used by frontend to display
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(createdRule); err != nil {
-		log.Printf("failed to encode created device response: %v", err)
+		log.Printf("failed to encode created rule response: %v", err)
 	}
 }
 
@@ -303,7 +303,7 @@ func (s *Server) updateRuleHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(io.LimitReader(r.Body, maxBodySize))
 	decoder.DisallowUnknownFields()
 
-	// Decode into deviceInput, handle error
+	// Decode into ruleInput, handle error
 	if err := decoder.Decode(&ruleInput); err != nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
@@ -371,33 +371,7 @@ func (s *Server) updateRuleHandler(w http.ResponseWriter, r *http.Request) {
 		deviceID,
 		ruleID,
 		func(rule model.Rule) (model.Rule, error) {
-			if ruleInput.Name != nil {
-				rule.Name = strings.TrimSpace(*ruleInput.Name)
-			}
-			if ruleInput.Enabled != nil {
-				rule.Enabled = *ruleInput.Enabled
-			}
-			if ruleInput.Measurement != nil {
-				rule.Measurement = *ruleInput.Measurement
-			}
-			if ruleInput.Comparison != nil {
-				rule.Comparison = ruleInput.Comparison
-			}
-			if ruleInput.Limit != nil {
-				rule.Limit = ruleInput.Limit
-			}
-			if ruleInput.LowerLimit != nil {
-				rule.LowerLimit = ruleInput.LowerLimit
-			}
-			if ruleInput.UpperLimit != nil {
-				rule.UpperLimit = ruleInput.UpperLimit
-			}
-			if ruleInput.Deadband != nil {
-				rule.Deadband = ruleInput.Deadband
-			}
-			if ruleInput.TripState != nil {
-				rule.TripState = ruleInput.TripState
-			}
+			ruleInput.UpdateFields(&rule) // Call helper
 			return rule, nil
 		})
 
@@ -460,7 +434,7 @@ func (s *Server) deleteRuleHandler(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrRuleNotFound):
 			http.Error(w, "Rule not found", http.StatusNotFound)
 		case errors.Is(err, store.ErrUnacknowledgedAlarm):
-			http.Error(w, "Unacknowledged alarm for device", http.StatusConflict)
+			http.Error(w, "Unacknowledged alarm for rule", http.StatusConflict)
 		default:
 			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}

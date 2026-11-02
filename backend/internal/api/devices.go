@@ -206,12 +206,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		deviceID,
 		func(device model.Device) (model.Device, error) {
-			if deviceInput.Name != nil {
-				device.Name = strings.TrimSpace(*deviceInput.Name)
-			}
-			if deviceInput.IP != nil {
-				device.IP = net.ParseIP(*deviceInput.IP).String()
-			}
+			deviceInput.UpdateFields(&device) // Call helper
 			return device, nil
 		})
 

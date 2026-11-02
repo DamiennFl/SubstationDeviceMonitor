@@ -12,3 +12,8 @@ Question: Why validate in Go in the intermediary step?
 
 Question: Why use PATCH methods over PUT when updating?
  - PUT completely replaces an item, or creates it if it does not exist. PATCH follows idempotency: multiple identical PATCH updates will not do anything more than the first, while multiple PUT updates will replace each time. Use PUT when you need to update an entire thing, potentially creating it or replacing it entirely, and PATCH for updating pieces while maintaining the state of everything else.
+
+
+ General Questions to learn about:
+  - When should you .Encode into JSON, and when should you .Marshal JSON and then return it? Is there ever a time where you should? Seems like .Encode uses .Marshal under the hood, based on the docstring, so it's probably the same actually.
+

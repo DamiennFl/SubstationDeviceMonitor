@@ -1,6 +1,8 @@
 package model
 
 import (
+	"net"
+	"strings"
 	"time"
 )
 
@@ -59,4 +61,47 @@ type ReadingInput struct {
 	RealPower     *float64  `json:"realPower"`
 	ReactivePower *float64  `json:"reactivePower"`
 	BreakerStatus *State    `json:"breakerStatus"`
+}
+
+//
+// Helper Functions
+//
+
+func (input UpdateDeviceInput) UpdateFields(device *Device) {
+	if input.Name != nil {
+		device.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.IP != nil {
+		device.IP = net.ParseIP(*input.IP).String()
+	}
+}
+
+func (input UpdateRuleInput) UpdateFields(rule *Rule) {
+	if input.Name != nil {
+		rule.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.Enabled != nil {
+		rule.Enabled = *input.Enabled
+	}
+	if input.Measurement != nil {
+		rule.Measurement = *input.Measurement
+	}
+	if input.Comparison != nil {
+		rule.Comparison = input.Comparison
+	}
+	if input.Limit != nil {
+		rule.Limit = input.Limit
+	}
+	if input.LowerLimit != nil {
+		rule.LowerLimit = input.LowerLimit
+	}
+	if input.UpperLimit != nil {
+		rule.UpperLimit = input.UpperLimit
+	}
+	if input.Deadband != nil {
+		rule.Deadband = input.Deadband
+	}
+	if input.TripState != nil {
+		rule.TripState = input.TripState
+	}
 }
