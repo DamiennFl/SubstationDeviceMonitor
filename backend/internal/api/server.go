@@ -6,6 +6,9 @@ import (
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 )
 
+// Limit request body to 1 MB
+const maxBodySize = 1024 * 1024
+
 // Define Server with services
 type Server struct {
 	store *store.Store
@@ -31,5 +34,12 @@ func (server *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/devices/{device_id}", server.getDeviceHandler)
 	mux.HandleFunc("PATCH /api/devices/{device_id}", server.updateDeviceHandler)
 	mux.HandleFunc("DELETE /api/devices/{device_id}", server.deleteDeviceHandler)
+
+	mux.HandleFunc("GET /api/devices/{device_id}/rules", server.getRulesListHandler)
+	mux.HandleFunc("POST /api/devices/{device_id}/rules", server.createRuleHandler)
+	mux.HandleFunc("GET /api/devices/{device_id}/rules/{rule_id}", server.getRuleHandler)
+	mux.HandleFunc("PATCH /api/devices/{device_id}/rules/{rule_id}", server.updateRuleHandler)
+	mux.HandleFunc("DELETE /api/devices/{device_id}/rules/{rule_id}", server.deleteRuleHandler)
+
 	return mux
 }

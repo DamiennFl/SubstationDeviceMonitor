@@ -14,9 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Limit request body to 1 MB
-const maxBodySize = 1024 * 1024
-
 // getDeviceHandler handles getting device
 // Handles "GET /api/device/{device_id}" via store.GetDevice
 func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
@@ -72,9 +69,9 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* type CreateDeviceInput struct {
-	Name       string     `json:"name"`
-	IP         string     `json:"ip"`
-	DeviceType DeviceType `json:"type"`
+		Name       string     `json:"name"`
+		IP         string     `json:"ip"`
+		DeviceType DeviceType `json:"type"`
 	}
 	*/
 	var deviceInput model.CreateDeviceInput

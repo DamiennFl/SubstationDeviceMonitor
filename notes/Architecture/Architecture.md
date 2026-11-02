@@ -27,10 +27,10 @@ Rules
 | Type | Endpoint | Purpose | Success | Errors |
 | ---- | -------- | ------- | ------- | ------ |
 | GET    | `/api/devices/{device_id}/rules` | Rules for a device | 200 Success | 404 Unknown ID (Device) |
-| GET    | `/api/devices/{device_id}/rules/rule` | Specific rule | 200 Success | 404 Unknown ID (Device or Rule) |
-| PATCH  | `/api/devices/{device_id}/rules/rule` | Modify rule  | 200 Success | 404 Unknown ID, 400 Bad Setting |
-| DELETE | `/api/devices/{device_id}/rules/rule` | Delete rule  | 204 Success | 404 Unknown ID, 400 Bad Setting, 409 Conflict Error |
-| POST   | `/api/devices/{device_id}/rules/new_rule` | New rule  | 200 Success | 404 Unknown ID, 400 Bad Setting |
+| GET    | `/api/devices/{device_id}/rules/{rule_id}` | Specific rule | 200 Success | 404 Unknown ID (Device or Rule) |
+| PATCH  | `/api/devices/{device_id}/rules/{rule_id}` | Modify rule  | 200 Success | 404 Unknown ID, 400 Bad Setting |
+| DELETE | `/api/devices/{device_id}/rules/{rule_id}` | Delete rule  | 204 Success | 404 Unknown ID, 400 Bad Setting, 409 Conflict Error |
+| POST   | `/api/devices/{device_id}/rules/{rule_id}` | New rule  | 200 Success | 404 Unknown ID, 400 Bad Setting |
 
 Readings
 | Type | Endpoint | Purpose | Success | Errors |

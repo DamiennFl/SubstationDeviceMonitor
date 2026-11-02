@@ -35,6 +35,20 @@ const (
 	RuleTypeStatus    RuleType = "status"
 )
 
+// UPDATE THIS WITH NEW RULE TYPES AS NECESSARY
+func (r RuleType) IsValid() bool {
+	switch r {
+	case RuleTypeThreshold:
+		return true
+	case RuleTypeBand:
+		return true
+	case RuleTypeStatus:
+		return true
+	default:
+		return false
+	}
+}
+
 // Comparison identifies a threshold comparison.
 type Comparison string
 
@@ -43,6 +57,18 @@ const (
 	ComparisonLT Comparison = "LT"
 )
 
+// UPDATE THIS WITH NEW COMPARISON TYPES AS NECESSARY
+func (c Comparison) IsValid() bool {
+	switch c {
+	case ComparisonGT:
+		return true
+	case ComparisonLT:
+		return true
+	default:
+		return false
+	}
+}
+
 // State represents an open or closed breaker state.
 type State string
 
@@ -50,6 +76,18 @@ const (
 	StateOpen   State = "open"
 	StateClosed State = "closed"
 )
+
+// UPDATE THIS WITH NEW STATE TYPES AS NECESSARY
+func (c State) IsValid() bool {
+	switch c {
+	case StateOpen:
+		return true
+	case StateClosed:
+		return true
+	default:
+		return false
+	}
+}
 
 // ClearReason identifies why an alarm was cleared.
 type ClearReason string
@@ -76,3 +114,31 @@ const (
 	MeasurementReactivePower Measurement = "reactivePower"
 	MeasurementBreakerStatus Measurement = "breakerStatus"
 )
+
+// UPDATE THIS WITH NEW MEASUREMENT TYPES AS NECESSARY
+func (m Measurement) IsValid() bool {
+	switch m {
+	case MeasurementCurrentA:
+		return true
+	case MeasurementCurrentB:
+		return true
+	case MeasurementCurrentC:
+		return true
+	case MeasurementVoltageA:
+		return true
+	case MeasurementVoltageB:
+		return true
+	case MeasurementVoltageC:
+		return true
+	case MeasurementFrequency:
+		return true
+	case MeasurementRealPower:
+		return true
+	case MeasurementReactivePower:
+		return true
+	case MeasurementBreakerStatus:
+		return true
+	default:
+		return false
+	}
+}
