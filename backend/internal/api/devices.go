@@ -103,7 +103,8 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if net.ParseIP(deviceInput.IP) == nil {
+	parsedIP := net.ParseIP(deviceInput.IP)
+	if parsedIP == nil {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
@@ -117,7 +118,7 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	device := model.Device{
 		ID:         uuid.New(),
 		Name:       strings.TrimSpace(deviceInput.Name),
-		IP:         string(net.ParseIP(deviceInput.IP)),
+		IP:         parsedIP.String(),
 		DeviceType: deviceInput.DeviceType,
 	}
 
@@ -196,9 +197,12 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if deviceInput.IP != nil && net.ParseIP(*deviceInput.IP) == nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
-		return
+	if deviceInput.IP != nil {
+		parsedIP := net.ParseIP(*deviceInput.IP)
+		if parsedIP == nil {
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+			return
+		}
 	}
 
 	updatedDevice, err := s.store.UpdateDevice(
@@ -209,7 +213,7 @@ func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
 				device.Name = strings.TrimSpace(*deviceInput.Name)
 			}
 			if deviceInput.IP != nil {
-				device.IP = string(net.ParseIP(*deviceInput.IP))
+				device.IP = net.ParseIP(*deviceInput.IP).String()
 			}
 			return device, nil
 		})
@@ -291,6 +295,7 @@ func (s *Server) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Set return header to JSON content-type
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 
 	// Try and encode device return to writer. Error out if error occurs, otherwise the device JSON will be written out.
 	if err := json.NewEncoder(w).Encode(deviceList); err != nil {
