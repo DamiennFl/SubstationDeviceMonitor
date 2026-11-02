@@ -384,7 +384,7 @@ func (s *Server) updateRuleHandler(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, store.ErrDuplicateRule):
 			http.Error(w, "Rule already exists", http.StatusConflict)
 		case errors.Is(err, store.ErrDuringRuleUpdate):
-			http.Error(w, "Invalid rule update", http.StatusBadRequest)
+			http.Error(w, "Invalid rule update", http.StatusInternalServerError)
 		default:
 			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
