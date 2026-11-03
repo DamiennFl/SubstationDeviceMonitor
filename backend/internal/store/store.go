@@ -812,13 +812,9 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 	}
 
 	// Update latest reading based on timestamps. Compare if existing reading exists, else just set.
-	if device.LatestReading != nil {
-		var latestReading model.Reading
-		latestReading = *device.LatestReading
-		if reading.Timestamp.After(latestReading.Timestamp) {
-			device.LatestReading = &reading
-		}
-	} else {
+	isNewerReading := device.LatestReading == nil ||
+		reading.Timestamp.After(device.LatestReading.Timestamp)
+	if isNewerReading {
 		device.LatestReading = &reading
 	}
 
@@ -836,8 +832,10 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 	// Update list ref
 	s.readings[reading.DeviceID] = readingsList
 
-	if err := s.evaluateRulesLocked(reading); err != nil {
-		return model.Reading{}, err
+	if isNewerReading {
+		if err := s.evaluateRulesLocked(reading); err != nil {
+			return model.Reading{}, err
+		}
 	}
 
 	// Return reading
@@ -968,9 +966,9 @@ func ruleShouldTrip(rule model.Rule, value any, active bool) bool {
 		// only affects the return-to-normal boundary above.
 		switch *rule.Comparison {
 		case model.ComparisonGT:
-			return number >= *rule.Limit
+			return number > *rule.Limit
 		case model.ComparisonLT:
-			return number <= *rule.Limit
+			return number < *rule.Limit
 		}
 	case model.RuleTypeBand:
 		if rule.LowerLimit == nil || rule.UpperLimit == nil {

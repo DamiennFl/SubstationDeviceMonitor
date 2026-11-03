@@ -1301,7 +1301,7 @@ func TestAddReadingClearsAlarmAfterDeadband(t *testing.T) {
 	}
 
 	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 100)); err != nil {
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 101)); err != nil {
 		t.Fatalf("AddReading(trip) error = %v", err)
 	}
 	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(time.Minute), 102)); err != nil {
@@ -1319,6 +1319,47 @@ func TestAddReadingClearsAlarmAfterDeadband(t *testing.T) {
 		alarms[0].Alarm.ClearReason == nil ||
 		*alarms[0].Alarm.ClearReason != model.ClearReasonNormal {
 		t.Fatalf("ListAlarms() = %#v, want one normally cleared alarm", alarms)
+	}
+}
+
+// Edge case: AddReading does not evaluate rules for a reading older than the latest reading.
+func TestAddReadingIgnoresLateReadingForAlarms(t *testing.T) {
+	s := NewStore()
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	limit := 100.0
+	comparison := model.ComparisonGT
+	rule := model.Rule{
+		ID:          uuid.New(),
+		DeviceID:    device.ID,
+		Name:        "Overcurrent",
+		Enabled:     true,
+		Type:        model.RuleTypeThreshold,
+		Measurement: model.MeasurementCurrentA,
+		Comparison:  &comparison,
+		Limit:       &limit,
+	}
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	base := time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC)
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(5*time.Minute), 101)); err != nil {
+		t.Fatalf("AddReading(trip) error = %v", err)
+	}
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(3*time.Minute), 95)); err != nil {
+		t.Fatalf("AddReading(late) error = %v", err)
+	}
+
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	if len(alarms) != 1 || alarms[0].Alarm.ClearedAt != nil {
+		t.Fatalf("ListAlarms() = %#v, want one active alarm", alarms)
 	}
 }
 
