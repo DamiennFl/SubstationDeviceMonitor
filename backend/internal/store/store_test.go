@@ -837,7 +837,7 @@ func TestListAlarms(t *testing.T) {
 	if _, err := s.RaiseAlarm(t.Context(), newer); err != nil {
 		t.Fatalf("RaiseAlarm(newer) error = %v", err)
 	}
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, "operator"); err != nil {
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, newer.ID, "operator"); err != nil {
 		t.Fatalf("AcknowledgeAlarm() error = %v", err)
 	}
 	// List alarms
@@ -1046,7 +1046,7 @@ func TestAcknowledgeAlarm(t *testing.T) {
 	ackBy := "operator"
 
 	// Acknowledge Alarm, ensure no error
-	got, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy)
+	got, err := s.AcknowledgeAlarm(t.Context(), device.ID, alarm.ID, ackBy)
 	if err != nil {
 		t.Fatalf("AcknowledgeAlarm() error = %v", err)
 	}
@@ -1085,11 +1085,11 @@ func TestAcknowledgeAlarmEdgeCase(t *testing.T) {
 	}
 	// Acknowledge alarm, ensure no error
 	ackBy := "operator"
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy); err != nil {
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, alarm.ID, ackBy); err != nil {
 		t.Fatalf("AcknowledgeAlarm(first) error = %v", err)
 	}
 	// Try and acknowledge again, ensure error
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy); !errors.Is(err, ErrAlarmAlreadyAcknowledged) {
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, alarm.ID, ackBy); !errors.Is(err, ErrAlarmAlreadyAcknowledged) {
 		t.Fatalf("AcknowledgeAlarm(second) error = %v, want ErrAlarmAlreadyAcknowledged", err)
 	}
 }
@@ -1100,7 +1100,7 @@ func TestAcknowledgeAlarmInvalidCase(t *testing.T) {
 	alarm := testAlarm(uuid.New(), uuid.New(), time.Now().UTC())
 	ackBy := "operator"
 	// Try and acknowledge alarm, ensure AlarmNotFound error. Acknowledgement should not be wider scope than that.
-	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm.DeviceID, *alarm.RuleID, ackBy); !errors.Is(err, ErrAlarmNotFound) {
+	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm.DeviceID, alarm.ID, ackBy); !errors.Is(err, ErrAlarmNotFound) {
 		t.Fatalf("AcknowledgeAlarm() error = %v, want ErrAlarmNotFound", err)
 	}
 }

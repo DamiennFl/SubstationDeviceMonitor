@@ -44,7 +44,7 @@ Alarms
 | Type | Endpoint | Purpose | Success | Errors |
 | ---- | -------- | ------- | ------- | ------ |
 | GET  | `/api/devices/{device_id}/alarms` | Alarm list on device page | 200 Success | 404 Unknown ID |
-| POST | `/api/devices/{device_id}/{alarm_id}/acknowledge` | Acknowledge Alarm | 200 Success | 404 Unknown ID (Device or Alarm)
+| POST | `/api/devices/{device_id}/alarms/{alarm_id}/acknowledge` | Acknowledge Alarm | 200 Success | 404 Unknown ID (Device or Alarm)
 
 Live Updates
 | Type | Endpoint | Purpose |

@@ -28,7 +28,6 @@ func (server *Server) Routes() http.Handler {
 	// New multiplexer
 	mux := http.NewServeMux()
 
-	// Handle GET device
 	mux.HandleFunc("GET /api/devices", server.listDevicesHandler)
 	mux.HandleFunc("POST /api/devices", server.createDeviceHandler)
 	mux.HandleFunc("GET /api/devices/{device_id}", server.getDeviceHandler)
@@ -44,5 +43,7 @@ func (server *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/devices/{device_id}/readings", server.createReadingHandler) // Only for Simulator
 	mux.HandleFunc("GET /api/devices/{device_id}/readings", server.getReadingsListHandler)
 
+	mux.HandleFunc("GET /api/devices/{device_id}/alarms", server.getDeviceAlarmListHandler)
+	mux.HandleFunc("POST /api/devices/{device_id}/alarms/{alarm_id}/acknowledge", server.acknowledgeAlarmHandler)
 	return mux
 }

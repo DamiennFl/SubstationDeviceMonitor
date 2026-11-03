@@ -639,8 +639,8 @@ func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime t
 	return clearedAlarm, nil
 }
 
-// AcknowledgeAlarm acknowledges the newest alarm for a device and rule.
-func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId uuid.UUID, ackBy string) (model.Alarm, error) {
+// AcknowledgeAlarm acknowledges an alarm for a device.
+func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, ackBy string) (model.Alarm, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -650,11 +650,10 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId
 		return model.Alarm{}, ErrAlarmNotFound
 	}
 
-	// Find the newest stored alarm for the device and rule. Cleared alarms may
-	// still be acknowledged.
+	// Find the stored alarm by ID. Cleared alarms may still be acknowledged.
 	alarmIndex := -1
 	for index, storedAlarm := range alarmList {
-		if storedAlarm.RuleID != nil && *storedAlarm.RuleID == ruleId {
+		if storedAlarm.ID == alarmID {
 			alarmIndex = index
 			break
 		}

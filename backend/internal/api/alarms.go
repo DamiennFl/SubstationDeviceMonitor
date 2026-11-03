@@ -38,7 +38,7 @@ func (s *Server) getDeviceAlarmListHandler(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(alarmList); err != nil {
-		log.Fatalf("failed to encode alarm list response: %v", err)
+		log.Printf("failed to encode alarm list response: %v", err)
 		return
 	}
 }
@@ -62,8 +62,8 @@ func (s *Server) acknowledgeAlarmHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ruleIDString := r.PathValue("rule_id")
-	ruleID, err := uuid.Parse(ruleIDString)
+	alarmIDString := r.PathValue("alarm_id")
+	alarmID, err := uuid.Parse(alarmIDString)
 	if err != nil {
 		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
 		return
@@ -71,20 +71,23 @@ func (s *Server) acknowledgeAlarmHandler(w http.ResponseWriter, r *http.Request)
 
 	acknowledgedBy := "admin" // TODO: PLACEHOLDER, UPDATE IF/WHEN ACCOUNTS EXIST
 
-	ackedAlarm, err := s.store.AcknowledgeAlarm(r.Context(), deviceID, ruleID, acknowledgedBy)
+	ackedAlarm, err := s.store.AcknowledgeAlarm(r.Context(), deviceID, alarmID, acknowledgedBy)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrAlarmNotFound):
 			http.Error(w, "Alarm not found", http.StatusNotFound)
 		case errors.Is(err, store.ErrAlarmAlreadyAcknowledged):
 			http.Error(w, "Alarm already acknowledged", http.StatusConflict)
+		default:
+			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(ackedAlarm); err != nil {
-		log.Fatalf("failed to encode acknowledged alarm response: %v", err)
+		log.Printf("failed to encode acknowledged alarm response: %v", err)
 		return
 	}
 }
