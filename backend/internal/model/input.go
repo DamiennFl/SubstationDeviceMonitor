@@ -71,6 +71,8 @@ func (input UpdateDeviceInput) UpdateFields(device *Device) {
 	if input.Name != nil {
 		device.Name = strings.TrimSpace(*input.Name)
 	}
+	// Always validate before passing in, otherwise this will break.
+	// ParseIP returns <nil> on bad IP
 	if input.IP != nil {
 		device.IP = net.ParseIP(*input.IP).String()
 	}

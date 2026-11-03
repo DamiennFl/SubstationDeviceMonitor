@@ -269,9 +269,11 @@ func TestUpdateDeviceHandler(t *testing.T) {
 	appStore, existing := testAPIStore(t)
 	server := NewServer(appStore)
 	response := httptest.NewRecorder()
+	Name := "Updated Relay"
+	IP := "192.0.2.20"
 	request := jsonDeviceRequest(http.MethodPatch, existing.ID.String(), model.UpdateDeviceInput{
-		Name: stringPointer("Updated Relay"),
-		IP:   stringPointer("192.0.2.20"),
+		Name: &Name,
+		IP:   &IP,
 	})
 
 	server.updateDeviceHandler(response, request)
@@ -293,8 +295,9 @@ func TestUpdateDeviceHandlerPartialUpdate(t *testing.T) {
 	appStore, existing := testAPIStore(t)
 	server := NewServer(appStore)
 	response := httptest.NewRecorder()
+	Name := "Renamed Relay"
 	request := jsonDeviceRequest(http.MethodPatch, existing.ID.String(), model.UpdateDeviceInput{
-		Name: stringPointer("Renamed Relay"),
+		Name: &Name,
 	})
 
 	server.updateDeviceHandler(response, request)
@@ -316,8 +319,9 @@ func TestUpdateDeviceHandlerNotFound(t *testing.T) {
 	server := NewServer(store.NewStore())
 	deviceID := uuid.New().String()
 	response := httptest.NewRecorder()
+	Name := "Updated Relay"
 	request := jsonDeviceRequest(http.MethodPatch, deviceID, model.UpdateDeviceInput{
-		Name: stringPointer("Updated Relay"),
+		Name: &Name,
 	})
 
 	server.updateDeviceHandler(response, request)
@@ -398,8 +402,4 @@ func TestDeleteDeviceHandlerWrongMethod(t *testing.T) {
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
 	}
-}
-
-func stringPointer(value string) *string {
-	return &value
 }
