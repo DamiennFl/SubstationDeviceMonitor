@@ -73,7 +73,7 @@ Live Updates
  - Error shape: JSON body with readable message, no internal details.
  - Event timestamps come from devices, to ensure proper logging of events and alarms.
  - When a rule is modified, disabled, or deleted, any alarms currently triggered by those rules will clear with a message stating which occurred. If it cleared due to regular conditions, e.g. the relay reported normal values, no clear reason message will be displayed.
-
+ - A deleted device's alarms can still be listed, however trying to get the device will return 404. This is to maintain alarm history, regardless of if a device was deleted after the alarms triggered.
 
  - Deploy order matters if data models are updated in the package, since the API will have strict input checking. Update API first then simulator.
  - When using pointers for input, a PATCH will never be able to clear a value like removing a deadband, since "not sent" and "send as null" both arrive as nil.
