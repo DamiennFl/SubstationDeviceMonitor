@@ -11,13 +11,15 @@ const maxBodySize = 1024 * 1024
 
 // Define Server with services
 type Server struct {
-	store *store.Store
+	store       *store.Store
+	eventBroker *EventBroker
 }
 
 // Server constructor
 func NewServer(store *store.Store) *Server {
 	return &Server{
-		store: store,
+		store:       store,
+		eventBroker: NewEventBroker(),
 	}
 }
 

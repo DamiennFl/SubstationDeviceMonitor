@@ -25,8 +25,12 @@ Question: How do you make sure the SSE handler is decoupled from the Store, to m
   - How does mux.HandleFunc() work explicitly? Where do the ResponseWriter and Request come from?
 
 Limitations:
+ - Event broker is very simple. Publishing is best-effort for delivery. Invalid event envelopes still return validation errors, but events may be dropped for slow or disconnected subscribers without reporting a delivery error.
+
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.
  
  - Not implemented right now: On-delay alarm activation, e.g. raise alarm after n-seconds of value out of range. This would mean maintaining a sliding window of values for each measurement for rule for each device. I don't want to do that for this project. So, deadband is only used for clearing alarms, meaning if a value trips because a value went above a number such as 400 with a 5 deadband, then the value must go under 395 before alarm clears.
+
+ - Right now the AddReading function just returns a reading, however since we are implementing SSE events it now needs to also signal which alarms it raised and cleared. Thus we refactor the returns of the Store functions to return structs containing all of the changes, instead of individual objects.
