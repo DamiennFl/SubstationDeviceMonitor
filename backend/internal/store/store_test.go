@@ -1181,6 +1181,184 @@ func TestAddReadingInvalidCase(t *testing.T) {
 	}
 }
 
+// Regular case: AddReading raises one alarm when an enabled threshold rule trips.
+func TestAddReadingRaisesAlarm(t *testing.T) {
+	s := NewStore()
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	limit := 100.0
+	comparison := model.ComparisonGT
+	rule := model.Rule{
+		ID:          uuid.New(),
+		DeviceID:    device.ID,
+		Name:        "Overcurrent",
+		Enabled:     true,
+		Type:        model.RuleTypeThreshold,
+		Measurement: model.MeasurementCurrentA,
+		Comparison:  &comparison,
+		Limit:       &limit,
+	}
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	timestamp := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	reading := testReading(device.ID, timestamp, 101)
+	if _, err := s.AddReading(t.Context(), reading); err != nil {
+		t.Fatalf("AddReading() error = %v", err)
+	}
+
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	if len(alarms) != 1 {
+		t.Fatalf("ListAlarms() returned %d alarms, want 1", len(alarms))
+	}
+	alarm := alarms[0].Alarm
+	if alarm.RuleID == nil || *alarm.RuleID != rule.ID ||
+		alarm.DeviceID != device.ID ||
+		!alarm.RaisedAt.Equal(timestamp) ||
+		alarm.TriggerValue != float64(101) {
+		t.Fatalf("alarm = %#v, want alarm raised by reading", alarm)
+	}
+	if alarm.RuleSnapshot.Name != rule.Name || alarm.RuleSnapshot.Limit == nil ||
+		*alarm.RuleSnapshot.Limit != limit {
+		t.Fatalf("RuleSnapshot = %#v, want threshold rule snapshot", alarm.RuleSnapshot)
+	}
+}
+
+// Edge case: AddReading does not raise duplicate active alarms for a rule.
+func TestAddReadingDoesNotDuplicateActiveAlarm(t *testing.T) {
+	s := NewStore()
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	limit := 100.0
+	comparison := model.ComparisonGT
+	rule := model.Rule{
+		ID:          uuid.New(),
+		DeviceID:    device.ID,
+		Name:        "Overcurrent",
+		Enabled:     true,
+		Type:        model.RuleTypeThreshold,
+		Measurement: model.MeasurementCurrentA,
+		Comparison:  &comparison,
+		Limit:       &limit,
+	}
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	for _, reading := range []model.Reading{
+		testReading(device.ID, base, 101),
+		testReading(device.ID, base.Add(time.Minute), 102),
+	} {
+		if _, err := s.AddReading(t.Context(), reading); err != nil {
+			t.Fatalf("AddReading() error = %v", err)
+		}
+	}
+
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	if len(alarms) != 1 || alarms[0].Alarm.ClearedAt != nil {
+		t.Fatalf("ListAlarms() = %#v, want one active alarm", alarms)
+	}
+}
+
+// Regular case: AddReading clears an active threshold alarm.
+func TestAddReadingClearsAlarmAfterDeadband(t *testing.T) {
+	s := NewStore()
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	limit := 100.0
+	deadband := 5.0
+	comparison := model.ComparisonGT
+	rule := model.Rule{
+		ID:          uuid.New(),
+		DeviceID:    device.ID,
+		Name:        "Overcurrent",
+		Enabled:     true,
+		Type:        model.RuleTypeThreshold,
+		Measurement: model.MeasurementCurrentA,
+		Comparison:  &comparison,
+		Limit:       &limit,
+		Deadband:    &deadband,
+	}
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 106)); err != nil {
+		t.Fatalf("AddReading(trip) error = %v", err)
+	}
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(time.Minute), 102)); err != nil {
+		t.Fatalf("AddReading(within deadband) error = %v", err)
+	}
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(2*time.Minute), 95)); err != nil {
+		t.Fatalf("AddReading(clear) error = %v", err)
+	}
+
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	if len(alarms) != 1 || alarms[0].Alarm.ClearedAt == nil ||
+		alarms[0].Alarm.ClearReason == nil ||
+		*alarms[0].Alarm.ClearReason != model.ClearReasonNormal {
+		t.Fatalf("ListAlarms() = %#v, want one normally cleared alarm", alarms)
+	}
+}
+
+// Invalid case: AddReading ignores disabled rules.
+func TestAddReadingIgnoresDisabledRule(t *testing.T) {
+	s := NewStore()
+	device := testDevice("Relay A", "192.0.2.1")
+	if _, err := s.CreateDevice(t.Context(), device); err != nil {
+		t.Fatalf("CreateDevice() error = %v", err)
+	}
+
+	limit := 100.0
+	comparison := model.ComparisonGT
+	rule := model.Rule{
+		ID:          uuid.New(),
+		DeviceID:    device.ID,
+		Name:        "Disabled Overcurrent",
+		Enabled:     false,
+		Type:        model.RuleTypeThreshold,
+		Measurement: model.MeasurementCurrentA,
+		Comparison:  &comparison,
+		Limit:       &limit,
+	}
+	if _, err := s.CreateRule(t.Context(), rule); err != nil {
+		t.Fatalf("CreateRule() error = %v", err)
+	}
+
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, time.Now().UTC(), 101)); err != nil {
+		t.Fatalf("AddReading() error = %v", err)
+	}
+
+	alarms, err := s.ListAlarms(t.Context(), device.ID)
+	if err != nil {
+		t.Fatalf("ListAlarms() error = %v", err)
+	}
+	if len(alarms) != 0 {
+		t.Fatalf("ListAlarms() = %#v, want no alarms", alarms)
+	}
+}
+
 // Regular case: ListReadings returns readings in descending timestamp order within the range.
 func TestListReadings(t *testing.T) {
 	s := NewStore()

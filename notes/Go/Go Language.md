@@ -439,6 +439,8 @@ func (c *SafeCounter) Value(key string) int {
 }
 ```
 
+Lock aware functions are private helper functions that assume the caller already holds the store lock, and thus don't try and lock themselves. See `store.RaiseAlarm` for a good example. 
+
 ### Struct tags
 
 Used to define how external libraries manipulate, serialize, or validate data.

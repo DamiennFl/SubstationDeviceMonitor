@@ -561,6 +561,10 @@ func (s *Store) RaiseAlarm(ctx context.Context, alarm model.Alarm) (model.Alarm,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	return s.raiseAlarmLocked(alarm)
+}
+
+func (s *Store) raiseAlarmLocked(alarm model.Alarm) (model.Alarm, error) {
 	// Check for existing device
 	device, ok := s.devices[alarm.DeviceID]
 	if !ok || device.DeletedAt != nil {
@@ -772,6 +776,7 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 //----------------------------------------------------------------------------------
 
 // AddReading adds a reading to the list of readings for a device and updates the latest reading for a device.
+// Also checks if any alarms should be raised or cleared.
 func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Reading, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -831,8 +836,170 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 	// Update list ref
 	s.readings[reading.DeviceID] = readingsList
 
+	if err := s.evaluateRulesLocked(reading); err != nil {
+		return model.Reading{}, err
+	}
+
 	// Return reading
 	return reading, nil
+}
+
+// evaluateRulesLocked raises or clears alarms for a reading. The store mutex
+// must be held by the caller (lock-aware)
+func (s *Store) evaluateRulesLocked(reading model.Reading) error {
+	// Iterate rules
+	for _, rule := range s.rules[reading.DeviceID] {
+		// Rule not enabled, skip
+		if !rule.Enabled {
+			continue
+		}
+
+		// Get rule measurement value from reading
+		value, ok := readingMeasurement(reading, rule.Measurement)
+		// If not reading measurement, skip
+		if !ok {
+			continue
+		}
+
+		// Find active alarm, if there is one
+		_, active := s.findActiveAlarm(reading.DeviceID, rule.ID)
+		// Check if rule was violated, if so trip
+		shouldTrip := ruleShouldTrip(rule, value, active)
+
+		// If alarm is not active and rule needs to trip, make new Alarm
+		if shouldTrip && !active {
+			ruleID := rule.ID
+			// Build Alarm with values
+			alarm := model.Alarm{
+				ID:           uuid.New(),
+				RuleID:       &ruleID,
+				DeviceID:     reading.DeviceID,  // Map to device
+				RaisedAt:     reading.Timestamp, // Make alarm timestamp based on reading, NOT server
+				TriggerValue: value,
+				RuleSnapshot: ruleSnapshot(rule), // Make snapshot of Rule that triggered
+			}
+			// raise Alarm. Use helper since evaluateRulesLocked is lock-aware,
+			// specifically from RaiseAlarm.
+			if _, err := s.raiseAlarmLocked(alarm); err != nil {
+				return err
+			}
+			// If alarm is active but readings show within acceptable values, clear alarm
+		} else if !shouldTrip && active {
+			if _, err := s.clearActiveAlarm(
+				reading.DeviceID,
+				rule.ID,
+				reading.Timestamp,
+				model.ClearReasonNormal,
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// readingMeasurement enum mapping
+// Returns measurement from reading and ok bool
+func readingMeasurement(reading model.Reading, measurement model.Measurement) (any, bool) {
+	switch measurement {
+	case model.MeasurementCurrentA:
+		return reading.CurrentA, true
+	case model.MeasurementCurrentB:
+		return reading.CurrentB, true
+	case model.MeasurementCurrentC:
+		return reading.CurrentC, true
+	case model.MeasurementVoltageA:
+		return reading.VoltageA, true
+	case model.MeasurementVoltageB:
+		return reading.VoltageB, true
+	case model.MeasurementVoltageC:
+		return reading.VoltageC, true
+	case model.MeasurementFrequency:
+		return reading.Frequency, true
+	case model.MeasurementRealPower:
+		return reading.RealPower, true
+	case model.MeasurementReactivePower:
+		return reading.ReactivePower, true
+	case model.MeasurementBreakerStatus:
+		return reading.BreakerStatus, true
+	default:
+		return nil, false
+	}
+}
+
+// ruleShouldTrip checks whether a rule has been violated, or if
+// value is within rule bounds/limit
+func ruleShouldTrip(rule model.Rule, value any, active bool) bool {
+	// Check trip rules.
+	if rule.Type == model.RuleTypeStatus {
+		tripState := rule.TripState
+		return tripState != nil && value == *tripState // Return true if tripState = true
+	}
+
+	// Validate float
+	number, ok := value.(float64)
+	if !ok {
+		return false
+	}
+
+	// Set deadband to 0 default, then validate
+	deadband := 0.0
+	if rule.Deadband != nil {
+		deadband = *rule.Deadband
+	}
+
+	// Get rule type other than status
+	switch rule.Type {
+	case model.RuleTypeThreshold:
+		if rule.Limit == nil || rule.Comparison == nil {
+			return false
+		}
+		// If alarm already active, check if alarm should be cleared
+		if active {
+			switch *rule.Comparison {
+			case model.ComparisonGT:
+				return number > *rule.Limit-deadband
+			case model.ComparisonLT:
+				return number < *rule.Limit+deadband
+			}
+		}
+		// If not active, require the reading to cross the trip + deadband
+		// threshold before raising an alarm.
+		switch *rule.Comparison {
+		case model.ComparisonGT:
+			return number > *rule.Limit+deadband
+		case model.ComparisonLT:
+			return number < *rule.Limit-deadband
+		}
+	case model.RuleTypeBand:
+		if rule.LowerLimit == nil || rule.UpperLimit == nil {
+			return false
+		}
+		// If rule is active, check if measurement value is within band
+		if active {
+			return number < *rule.LowerLimit+deadband || number > *rule.UpperLimit-deadband
+		}
+		// Otherwise check if outside of band
+		return number < *rule.LowerLimit || number > *rule.UpperLimit
+	}
+
+	return false
+}
+
+// ruleSnapshot helper to create Rule snapshot.
+func ruleSnapshot(rule model.Rule) model.RuleSnapshot {
+	return model.RuleSnapshot{
+		Name:        rule.Name,
+		Type:        rule.Type,
+		Measurement: rule.Measurement,
+		Comparison:  rule.Comparison,
+		Limit:       rule.Limit,
+		LowerLimit:  rule.LowerLimit,
+		UpperLimit:  rule.UpperLimit,
+		Deadband:    rule.Deadband,
+		TripState:   rule.TripState,
+	}
 }
 
 func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time.Time, end time.Time) ([]model.Reading, error) {
