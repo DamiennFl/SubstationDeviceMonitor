@@ -21,6 +21,16 @@ func NewServer(store *store.Store) *Server {
 	}
 }
 
+func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+	// Just say OK
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) live(w http.ResponseWriter, r *http.Request) {
+	// Just say OK
+	w.WriteHeader(http.StatusOK)
+}
+
 // Define Routes for server
 // Runs once on startup, to register Routes. Then everything is handled by mux it returns.
 // The mux matches the method and path, then calls the handler.
@@ -45,5 +55,8 @@ func (server *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /api/devices/{device_id}/alarms", server.getDeviceAlarmListHandler)
 	mux.HandleFunc("POST /api/devices/{device_id}/alarms/{alarm_id}/acknowledge", server.acknowledgeAlarmHandler)
+
+	mux.HandleFunc("GET /health", server.health)
+	mux.HandleFunc("GET /live", server.live)
 	return mux
 }
