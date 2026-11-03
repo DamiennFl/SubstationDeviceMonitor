@@ -1124,7 +1124,7 @@ func TestAddReading(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
-	if got != reading {
+	if got.Reading != reading {
 		t.Fatalf("AddReading() = %#v, want %#v", got, reading)
 	}
 

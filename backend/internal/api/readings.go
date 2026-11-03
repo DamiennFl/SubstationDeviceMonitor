@@ -103,7 +103,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		BreakerStatus: *readingInput.BreakerStatus,
 	}
 
-	_, err = s.store.AddReading(r.Context(), reading)
+	readingResult, err := s.store.AddReading(r.Context(), reading)
 
 	if err != nil {
 		switch {
@@ -114,6 +114,12 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		}
+		return
+	}
+
+	if err := s.publishReadingResultEvents(readingResult); err != nil {
+		log.Printf("failed to publish reading events: %v", err)
+		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -181,4 +187,102 @@ func (s *Server) getReadingsListHandler(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewEncoder(w).Encode(readingsList); err != nil {
 		log.Printf("failed to encode readings response: %v", err)
 	}
+}
+
+// publishReadingResultEvents publishes the accepted reading first, followed by
+// alarms raised and cleared while evaluating the reading.
+func (s *Server) publishReadingResultEvents(readingResult model.ReadingResult) error {
+	// Call payload creation helper
+	readingPayload, err := createReadingPayload(readingResult.Reading)
+	if err != nil {
+		return err
+	}
+	// Publish new reading event first through server's event broker.
+	if err := s.eventBroker.Publish(model.Event{
+		EventID:        uuid.New(),
+		DeviceID:       readingResult.Reading.DeviceID,
+		EventType:      model.ReadingEvent,
+		EventTimestamp: readingResult.Reading.Timestamp,
+		Payload:        readingPayload,
+	}); err != nil {
+		return err
+	}
+
+	// Iterate raised alarms, and publish new alarm raised events through server's event broker.
+	for _, alarm := range readingResult.RuleEvaluationResult.RaisedAlarms {
+		alarmPayload, err := createRaisedAlarmPayload(alarm)
+		if err != nil {
+			return err
+		}
+		if err := s.eventBroker.Publish(model.Event{
+			EventID:        uuid.New(),
+			DeviceID:       alarm.DeviceID,
+			EventType:      model.AlarmRaisedEvent,
+			EventTimestamp: alarm.RaisedAt,
+			Payload:        alarmPayload,
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Iterate cleared alarms, and publish new alarm cleared events through server's event broker.
+	for _, alarm := range readingResult.RuleEvaluationResult.ClearedAlarms {
+		alarmPayload, err := createClearedAlarmPayload(alarm)
+		if err != nil {
+			return err
+		}
+		if alarm.ClearedAt == nil {
+			return errors.New("cleared alarm is missing cleared timestamp")
+		}
+		if err := s.eventBroker.Publish(model.Event{
+			EventID:        uuid.New(),
+			DeviceID:       alarm.DeviceID,
+			EventType:      model.AlarmClearedEvent,
+			EventTimestamp: *alarm.ClearedAt,
+			Payload:        alarmPayload,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// createReadingPayload serializes a reading event payload.
+//
+// Example payload:
+//
+//	{"deviceId":"00000000-0000-0000-0000-000000000001","timestamp":"2026-11-03T20:00:00Z","currentA":10,"currentB":11,"currentC":12,"voltageA":120,"voltageB":121,"voltageC":122,"frequency":60,"realPower":100,"reactivePower":20,"breakerStatus":"closed"}
+func createReadingPayload(reading model.Reading) (string, error) {
+	payload, err := json.Marshal(reading)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
+}
+
+// createRaisedAlarmPayload serializes an alarm-raised event payload.
+//
+// Example payload:
+//
+//	{"id":"00000000-0000-0000-0000-000000000002","ruleId":"00000000-0000-0000-0000-000000000003","deviceId":"00000000-0000-0000-0000-000000000001","raisedAt":"2026-11-03T20:00:00Z","triggerValue":401,"ruleSnapshot":{"name":"High current","type":"threshold","measurement":"currentA","comparison":"GT","limit":400}}
+func createRaisedAlarmPayload(alarm model.Alarm) (string, error) {
+	payload, err := json.Marshal(alarm)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
+}
+
+// createClearedAlarmPayload serializes an alarm-cleared event payload.
+//
+// Example payload:
+//
+//	{"id":"00000000-0000-0000-0000-000000000002","ruleId":"00000000-0000-0000-0000-000000000003","deviceId":"00000000-0000-0000-0000-000000000001","raisedAt":"2026-11-03T20:00:00Z","clearedAt":"2026-11-03T20:05:00Z","clearReason":"normal","triggerValue":401,"ruleSnapshot":{"name":"High current","type":"threshold","measurement":"currentA","comparison":"GT","limit":400}}
+func createClearedAlarmPayload(alarm model.Alarm) (string, error) {
+	payload, err := json.Marshal(alarm)
+	if err != nil {
+		return "", err
+	}
+	return string(payload), nil
 }

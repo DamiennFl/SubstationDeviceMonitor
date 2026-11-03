@@ -776,8 +776,9 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 //----------------------------------------------------------------------------------
 
 // AddReading adds a reading to the list of readings for a device and updates the latest reading for a device.
-// Also checks if any alarms should be raised or cleared.
-func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Reading, error) {
+// Also checks if any alarms should be raised or cleared, and returns all three in a return structure.
+// We return all of these so the createReadingHandler can create events and send them to the event broker.
+func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.ReadingResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -786,12 +787,12 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 
 	// If no device, error
 	if !ok {
-		return model.Reading{}, ErrDeviceNotFound
+		return model.ReadingResult{}, ErrDeviceNotFound
 	}
 
 	// If device is soft-deleted, error
 	if device.DeletedAt != nil {
-		return model.Reading{}, ErrDeviceNotFound
+		return model.ReadingResult{}, ErrDeviceNotFound
 	}
 
 	// Get readings list
@@ -806,7 +807,7 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 	if len(readingsList) > 0 {
 		for _, existingReading := range readingsList {
 			if existingReading.Timestamp.Equal(reading.Timestamp) {
-				return model.Reading{}, ErrDuplicateReading
+				return model.ReadingResult{}, ErrDuplicateReading
 			}
 		}
 	}
@@ -832,35 +833,45 @@ func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.Re
 	// Update list ref
 	s.readings[reading.DeviceID] = readingsList
 
+	readingResult := model.ReadingResult{
+		Reading: reading,
+		RuleEvaluationResult: model.RuleEvaluationResult{
+			RaisedAlarms:  make([]model.Alarm, 0),
+			ClearedAlarms: make([]model.Alarm, 0),
+		},
+	}
+
 	if isNewerReading {
-		if err := s.evaluateRulesLocked(reading); err != nil {
-			return model.Reading{}, err
+		// Pass in pointer to readingResult to update values in place
+		if err := s.evaluateRulesLocked(&readingResult); err != nil {
+			return model.ReadingResult{}, err
 		}
 	}
 
 	// Return reading
-	return reading, nil
+	return readingResult, nil
 }
 
 // evaluateRulesLocked raises or clears alarms for a reading. The store mutex
 // must be held by the caller (lock-aware)
-func (s *Store) evaluateRulesLocked(reading model.Reading) error {
+// Modifies reading result in place.
+func (s *Store) evaluateRulesLocked(readingResult *model.ReadingResult) error {
 	// Iterate rules
-	for _, rule := range s.rules[reading.DeviceID] {
+	for _, rule := range s.rules[readingResult.Reading.DeviceID] {
 		// Rule not enabled, skip
 		if !rule.Enabled {
 			continue
 		}
 
 		// Get rule measurement value from reading
-		value, ok := readingMeasurement(reading, rule.Measurement)
+		value, ok := readingMeasurement(readingResult.Reading, rule.Measurement)
 		// If not reading measurement, skip
 		if !ok {
 			continue
 		}
 
 		// Find active alarm, if there is one
-		_, active := s.findActiveAlarm(reading.DeviceID, rule.ID)
+		_, active := s.findActiveAlarm(readingResult.Reading.DeviceID, rule.ID)
 		// Check if rule was violated, if so trip
 		shouldTrip := ruleShouldTrip(rule, value, active)
 
@@ -871,8 +882,8 @@ func (s *Store) evaluateRulesLocked(reading model.Reading) error {
 			alarm := model.Alarm{
 				ID:           uuid.New(),
 				RuleID:       &ruleID,
-				DeviceID:     reading.DeviceID,  // Map to device
-				RaisedAt:     reading.Timestamp, // Make alarm timestamp based on reading, NOT server
+				DeviceID:     readingResult.Reading.DeviceID,  // Map to device
+				RaisedAt:     readingResult.Reading.Timestamp, // Make alarm timestamp based on reading, NOT server
 				TriggerValue: value,
 				RuleSnapshot: ruleSnapshot(rule), // Make snapshot of Rule that triggered
 			}
@@ -881,15 +892,19 @@ func (s *Store) evaluateRulesLocked(reading model.Reading) error {
 			if _, err := s.raiseAlarmLocked(alarm); err != nil {
 				return err
 			}
+			// Add raised alarm to list
+			readingResult.RuleEvaluationResult.RaisedAlarms = append(readingResult.RuleEvaluationResult.RaisedAlarms, alarm)
 			// If alarm is active but readings show within acceptable values, clear alarm
 		} else if !shouldTrip && active {
-			if _, err := s.clearActiveAlarm(
-				reading.DeviceID,
+			if clearedAlarm, err := s.clearActiveAlarm(
+				readingResult.Reading.DeviceID,
 				rule.ID,
-				reading.Timestamp,
+				readingResult.Reading.Timestamp,
 				model.ClearReasonNormal,
 			); err != nil {
 				return err
+			} else {
+				readingResult.RuleEvaluationResult.ClearedAlarms = append(readingResult.RuleEvaluationResult.ClearedAlarms, clearedAlarm)
 			}
 		}
 	}
