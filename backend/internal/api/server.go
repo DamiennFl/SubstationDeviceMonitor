@@ -61,6 +61,6 @@ func (server *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /live", server.live)
 	mux.HandleFunc("GET /ready", server.ready)
 
-	mux.HandleFunc("/api/events", server.getEventsSSEHandler)
+	mux.HandleFunc("GET /api/events", server.getEventsSSEHandler)
 	return mux
 }

@@ -25,6 +25,9 @@ func (s *Server) getEventsSSEHandler(w http.ResponseWriter, r *http.Request) {
 	// Initial status as OK, which signals to the client the stream is open
 	w.WriteHeader(http.StatusOK)
 
+	// Send initial status, otherwise it will hang.
+	flusher.Flush()
+
 	// Sub before looping, defer unsub until looping is done.
 	// When r.Context().Done() is true, loop will exit and unsub will trigger
 	subscriber := s.eventBroker.Subscribe()

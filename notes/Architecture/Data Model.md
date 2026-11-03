@@ -123,8 +123,8 @@ Each event has a type name and a JSON payload.
 | -------------------- | ------- |
 | `reading`            | Reading |
 | `alarmRaised`        | Alarm |
-| `alarmCleared`       | `id`, `ruleId`, `deviceId`, `clearedAt` |
-| `alarmAcknowledged`  | Acknowledgement |
+| `alarmCleared`       | Alarm |
+| `alarmAcked`  | Acknowledgement |
 
 ## Errors
 Every error response has the body `{ "message": "<readable text>" }`.

@@ -94,7 +94,6 @@ func (s *Server) acknowledgeAlarmHandler(w http.ResponseWriter, r *http.Request)
 
 	if err := s.publishAcknowledgeAlarmEvent(alarmWithAck); err != nil {
 		log.Printf("failed to publish alarm ack event: %v", err)
-		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
 }

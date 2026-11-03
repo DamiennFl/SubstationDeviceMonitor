@@ -125,7 +125,6 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	// more important.
 	if err := s.publishReadingResultEvents(readingResult); err != nil {
 		log.Printf("failed to publish reading events: %v", err)
-		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
 
