@@ -25,7 +25,7 @@ Question: How do you make sure the SSE handler is decoupled from the Store, to m
   - How does mux.HandleFunc() work explicitly? Where do the ResponseWriter and Request come from?
 
 Limitations:
- - Event broker is very simple. Publishing is best-effort for delivery. Invalid event envelopes still return validation errors, but events may be dropped for slow or disconnected subscribers without reporting a delivery error.
+ - Event broker is very simple. Publishing is best-effort for delivery. Invalid event envelopes still return validation errors, but events may be dropped for slow or disconnected subscribers without reporting a delivery error. This may also de-sync the application from the actual state of the Store (and later the DB). The more important source is the store/DB, thus REST call returns will be the source of truth, while SSE events do their best to stay in sync.
 
 
 Other

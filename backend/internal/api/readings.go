@@ -117,14 +117,17 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set content type, set status to created.
+	w.WriteHeader(http.StatusNoContent)
+
+	// Publish reading event. Comes after HTTP status set because
+	// failing a publish event does not fail the underlying store logic, which is
+	// more important.
 	if err := s.publishReadingResultEvents(readingResult); err != nil {
 		log.Printf("failed to publish reading events: %v", err)
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
 		return
 	}
-
-	// Set content type, set status to created.
-	w.WriteHeader(http.StatusNoContent)
 
 	// INTERNAL API CALL, we do not return encoded JSON body.
 }

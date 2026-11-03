@@ -644,14 +644,14 @@ func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime t
 }
 
 // AcknowledgeAlarm acknowledges an alarm for a device.
-func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, ackBy string) (model.Alarm, error) {
+func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmID uuid.UUID, ackBy string) (model.AlarmWithAcknowledgement, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Get Alarm list from deviceID
 	alarmList, ok := s.alarms[deviceID]
 	if !ok {
-		return model.Alarm{}, ErrAlarmNotFound
+		return model.AlarmWithAcknowledgement{}, ErrAlarmNotFound
 	}
 
 	// Find the stored alarm by ID. Cleared alarms may still be acknowledged.
@@ -663,14 +663,14 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmI
 		}
 	}
 	if alarmIndex == -1 {
-		return model.Alarm{}, ErrAlarmNotFound
+		return model.AlarmWithAcknowledgement{}, ErrAlarmNotFound
 	}
 
 	alarm := alarmList[alarmIndex]
 
 	// The acknowledgement map is the single source of truth.
 	if _, acknowledged := s.acknowledgements[alarm.ID]; acknowledged {
-		return model.Alarm{}, ErrAlarmAlreadyAcknowledged
+		return model.AlarmWithAcknowledgement{}, ErrAlarmAlreadyAcknowledged
 	}
 
 	// Make acknowledgement if none
@@ -683,7 +683,14 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, alarmI
 	s.acknowledgements[alarm.ID] = ack
 
 	newAlarm := alarmList[alarmIndex]
-	return newAlarm, nil
+
+	// Return alarm and ack pair, to create event
+	returnAlarmWithAck := model.AlarmWithAcknowledgement{
+		Alarm:           newAlarm,
+		Acknowledgement: &ack,
+	}
+
+	return returnAlarmWithAck, nil
 }
 
 // findActiveAlarm is a helper to find an active Alarm based on a Device and Rule. It must only be used within functions that have locked the Store.

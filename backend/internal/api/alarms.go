@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 	"github.com/google/uuid"
 )
@@ -71,7 +72,7 @@ func (s *Server) acknowledgeAlarmHandler(w http.ResponseWriter, r *http.Request)
 
 	acknowledgedBy := "admin" // TODO: PLACEHOLDER, UPDATE IF/WHEN ACCOUNTS EXIST
 
-	ackedAlarm, err := s.store.AcknowledgeAlarm(r.Context(), deviceID, alarmID, acknowledgedBy)
+	alarmWithAck, err := s.store.AcknowledgeAlarm(r.Context(), deviceID, alarmID, acknowledgedBy)
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrAlarmNotFound):
@@ -86,8 +87,45 @@ func (s *Server) acknowledgeAlarmHandler(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(ackedAlarm); err != nil {
+	if err := json.NewEncoder(w).Encode(alarmWithAck); err != nil {
 		log.Printf("failed to encode acknowledged alarm response: %v", err)
 		return
 	}
+
+	if err := s.publishAcknowledgeAlarmEvent(alarmWithAck); err != nil {
+		log.Printf("failed to publish alarm ack event: %v", err)
+		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+// Sends an alarm acknowledgement event through the server's event broker.
+func (s *Server) publishAcknowledgeAlarmEvent(alarmWithAck model.AlarmWithAcknowledgement) error {
+	acknowledgementPayload, err := createAckPayload(alarmWithAck)
+	if err != nil {
+		return err
+	}
+
+	// Publish event with necessary values
+	if err := s.eventBroker.Publish(model.Event{
+		EventID:        uuid.New(),
+		DeviceID:       alarmWithAck.Alarm.DeviceID,
+		EventType:      model.AlarmAckedEvent,
+		EventTimestamp: alarmWithAck.Acknowledgement.AcknowledgedAt,
+		Payload:        acknowledgementPayload,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createAckPayload(alarmWithAck model.AlarmWithAcknowledgement) (string, error) {
+	// Create JSON for alarm and acknowledgment
+	payload, err := json.Marshal(alarmWithAck)
+	if err != nil {
+		return "", err
+	}
+
+	return string(payload), nil
 }

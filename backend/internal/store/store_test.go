@@ -1051,8 +1051,8 @@ func TestAcknowledgeAlarm(t *testing.T) {
 		t.Fatalf("AcknowledgeAlarm() error = %v", err)
 	}
 	// Check correct ID from returned Alarm
-	if got.ID != alarm.ID {
-		t.Fatalf("AcknowledgeAlarm() returned alarm ID %v, want %v", got.ID, alarm.ID)
+	if got.Alarm.ID != alarm.ID {
+		t.Fatalf("AcknowledgeAlarm() returned alarm ID %v, want %v", got.Alarm.ID, alarm.ID)
 	}
 	// Check acknowledgements list, validate acknowledgement tied to alarm
 	stored, ok := s.acknowledgements[alarm.ID]
