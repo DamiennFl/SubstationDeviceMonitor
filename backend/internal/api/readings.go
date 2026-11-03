@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"time"
 
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/model"
 	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
@@ -14,6 +15,7 @@ import (
 )
 
 func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
+	// Close data stream at the end
 	defer r.Body.Close()
 
 	if r.Method != http.MethodPost {
@@ -131,8 +133,61 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getReadingsListHandler(w http.ResponseWriter, r *http.Request) {
-	// Validate method
-	// Get Device ID from URL
-	// Get list
-	// Return list, empty or not
+	// Verify method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get deviceID from path string
+	deviceIDString := r.PathValue("device_id")
+	// Parse the UUID, return if it is invalid
+	deviceID, err := uuid.Parse(deviceIDString)
+	if err != nil {
+		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	// Get from and to parameters
+	query := r.URL.Query()
+	fromString := query.Get("from")
+	toString := query.Get("to")
+	if fromString == "" || toString == "" {
+		http.Error(w, "Invalid reading range", http.StatusBadRequest)
+		return
+	}
+
+	// Get from time
+	from, err := time.Parse(time.RFC3339, fromString)
+	if err != nil {
+		http.Error(w, "Invalid reading range", http.StatusBadRequest)
+		return
+	}
+
+	// Get to time
+	to, err := time.Parse(time.RFC3339, toString)
+	if err != nil || to.Before(from) {
+		http.Error(w, "Invalid reading range", http.StatusBadRequest)
+		return
+	}
+
+	// List readings of deviceID from -> to
+	readingsList, err := s.store.ListReadings(r.Context(), deviceID, from, to)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrDeviceNotFound):
+			http.Error(w, "Device not found", http.StatusNotFound)
+		default:
+			http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Set status OK and encode readingsList
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(readingsList); err != nil {
+		log.Printf("failed to encode readings response: %v", err)
+	}
 }
