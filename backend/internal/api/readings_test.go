@@ -78,7 +78,7 @@ func testReading(deviceID uuid.UUID, timestamp time.Time, currentA float64) mode
 	}
 }
 
-// Regular case: createReadingHandler creates and returns a reading.
+// Regular case: createReadingHandler creates a reading.
 func TestCreateReadingHandler(t *testing.T) {
 	appStore, device := testReadingAPIStore(t)
 	server := NewServer(appStore)
@@ -92,19 +92,8 @@ func TestCreateReadingHandler(t *testing.T) {
 
 	server.createReadingHandler(response, request)
 
-	if response.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d", response.Code, http.StatusCreated)
-	}
-	if response.Header().Get("Content-Type") != "application/json" {
-		t.Fatalf("Content-Type = %q, want application/json", response.Header().Get("Content-Type"))
-	}
-
-	var got model.Reading
-	if err := json.NewDecoder(response.Body).Decode(&got); err != nil {
-		t.Fatalf("decoding response: %v", err)
-	}
-	if got.DeviceID != device.ID || !got.Timestamp.Equal(timestamp) || got.CurrentA != 10 {
-		t.Fatalf("response reading = %#v, want created reading", got)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusNoContent)
 	}
 }
 

@@ -103,7 +103,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		BreakerStatus: *readingInput.BreakerStatus,
 	}
 
-	createdReading, err := s.store.AddReading(r.Context(), reading)
+	_, err = s.store.AddReading(r.Context(), reading)
 
 	if err != nil {
 		switch {
@@ -119,15 +119,9 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Set content type, set status to created.
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusNoContent)
 
-	// Encode into JSON and return. Log error if encoding failed.
-	// TODO: Figure out if we need a different flow; we set header to created but encoding failed.
-	// 	  	 Should a case like that lead to not creating reading? Should we encode it first, validate it,
-	// 		 then if it is valid create it and set status created?
-	if err := json.NewEncoder(w).Encode(createdReading); err != nil {
-		log.Printf("failed to encode created device response: %v", err)
-	}
+	// INTERNAL API CALL, we do not return encoded JSON body.
 }
 
 func (s *Server) getReadingsListHandler(w http.ResponseWriter, r *http.Request) {
