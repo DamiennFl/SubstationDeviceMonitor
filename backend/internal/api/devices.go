@@ -59,8 +59,6 @@ func (s *Server) getDeviceHandler(w http.ResponseWriter, r *http.Request) {
 // createDeviceHandler handles creating device.
 // Handles "POST /api/device" via store.CreateDevice
 func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
-	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
-	defer r.Body.Close()
 
 	// Validate method
 	if r.Method != http.MethodPost {
@@ -147,8 +145,6 @@ func (s *Server) createDeviceHandler(w http.ResponseWriter, r *http.Request) {
 // updateDeviceHandler handles updating device
 // Handles "PATCH /api/device/{device_id}" via Store.UpdateDevice
 func (s *Server) updateDeviceHandler(w http.ResponseWriter, r *http.Request) {
-	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
-	defer r.Body.Close()
 
 	// Validate method
 	if r.Method != http.MethodPatch {

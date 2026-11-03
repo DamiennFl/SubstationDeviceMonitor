@@ -837,7 +837,7 @@ func TestListAlarms(t *testing.T) {
 	if _, err := s.RaiseAlarm(t.Context(), newer); err != nil {
 		t.Fatalf("RaiseAlarm(newer) error = %v", err)
 	}
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, model.Acknowledgement{AcknowledgedBy: "operator"}); err != nil {
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, "operator"); err != nil {
 		t.Fatalf("AcknowledgeAlarm() error = %v", err)
 	}
 	// List alarms
@@ -1043,13 +1043,10 @@ func TestAcknowledgeAlarm(t *testing.T) {
 		t.Fatalf("RaiseAlarm() error = %v", err)
 	}
 	// New acknowledgement, normally would come from API through input struct
-	ack := model.Acknowledgement{
-		AcknowledgedBy: "operator",
-		AcknowledgedAt: time.Time{},
-	}
+	ackBy := "operator"
 
 	// Acknowledge Alarm, ensure no error
-	got, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ack)
+	got, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy)
 	if err != nil {
 		t.Fatalf("AcknowledgeAlarm() error = %v", err)
 	}
@@ -1059,8 +1056,8 @@ func TestAcknowledgeAlarm(t *testing.T) {
 	}
 	// Check acknowledgements list, validate acknowledgement tied to alarm
 	stored, ok := s.acknowledgements[alarm.ID]
-	if !ok || stored.AlarmID != alarm.ID || stored.AcknowledgedBy != ack.AcknowledgedBy || !stored.AcknowledgedAt.Equal(acknowledgedAt) {
-		t.Fatalf("acknowledgements[%v] = %#v, want %#v", alarm.ID, stored, ack)
+	if !ok || stored.AlarmID != alarm.ID || stored.AcknowledgedBy != ackBy || !stored.AcknowledgedAt.Equal(acknowledgedAt) {
+		t.Fatalf("acknowledgements[%v] = %#v, want acknowledgement by %q", alarm.ID, stored, ackBy)
 	}
 }
 
@@ -1087,12 +1084,12 @@ func TestAcknowledgeAlarmEdgeCase(t *testing.T) {
 		t.Fatalf("ClearAlarm() error = %v", err)
 	}
 	// Acknowledge alarm, ensure no error
-	ack := model.Acknowledgement{AcknowledgedBy: "operator", AcknowledgedAt: time.Now().UTC()}
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ack); err != nil {
+	ackBy := "operator"
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy); err != nil {
 		t.Fatalf("AcknowledgeAlarm(first) error = %v", err)
 	}
 	// Try and acknowledge again, ensure error
-	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ack); !errors.Is(err, ErrAlarmAlreadyAcknowledged) {
+	if _, err := s.AcknowledgeAlarm(t.Context(), device.ID, rule.ID, ackBy); !errors.Is(err, ErrAlarmAlreadyAcknowledged) {
 		t.Fatalf("AcknowledgeAlarm(second) error = %v, want ErrAlarmAlreadyAcknowledged", err)
 	}
 }
@@ -1101,12 +1098,9 @@ func TestAcknowledgeAlarmEdgeCase(t *testing.T) {
 func TestAcknowledgeAlarmInvalidCase(t *testing.T) {
 	// New alarm and acknowledgement
 	alarm := testAlarm(uuid.New(), uuid.New(), time.Now().UTC())
-	ack := model.Acknowledgement{
-		AcknowledgedBy: "operator",
-		AcknowledgedAt: time.Now().UTC(),
-	}
+	ackBy := "operator"
 	// Try and acknowledge alarm, ensure AlarmNotFound error. Acknowledgement should not be wider scope than that.
-	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm.DeviceID, *alarm.RuleID, ack); !errors.Is(err, ErrAlarmNotFound) {
+	if _, err := NewStore().AcknowledgeAlarm(t.Context(), alarm.DeviceID, *alarm.RuleID, ackBy); !errors.Is(err, ErrAlarmNotFound) {
 		t.Fatalf("AcknowledgeAlarm() error = %v, want ErrAlarmNotFound", err)
 	}
 }

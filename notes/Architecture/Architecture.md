@@ -1,9 +1,11 @@
-Use Go for concurrency capabilities, channels for passing info. Maps directly to what this project does.
+Use Go for concurrency capabilities. Maps directly to what this project does.
 
 Two important links in the system:
 
 Simulator -> API Server: How devices report readings
 API Server -> Browser: How the readings are updated and displayed, live updates
+API Server -> Go backend: How API calls are validated and handled before doing anything with DB
+Go backend -> DB: How data is stored/retrieved long term
 
 ### Components List
  - React + Typescript frontend, served by nginx
@@ -76,7 +78,8 @@ Live Updates
  - Deploy order matters if data models are updated in the package, since the API will have strict input checking. Update API first then simulator.
  - When using pointers for input, a PATCH will never be able to clear a value like removing a deadband, since "not sent" and "send as null" both arrive as nil.
  - Rules are stored as a list per device. It is slower to find a single rule, since we have to iterate through the list, however editing is rarer than fetching the list of rules, which we need when readings come through to potentially trigger alarms.
- - Store contains a clock to keep devices, rules, and alarms synchronized.
+ - Store contains a clock to keep devices, rules, and alarms synchronized. However readings retain the
+ device timestamp, to reflect when the device reported its values.
 
 ### Future improvements:
  - More SSE events (device created or deleted, alarm acknowledged)

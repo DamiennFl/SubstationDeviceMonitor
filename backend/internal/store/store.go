@@ -639,8 +639,8 @@ func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime t
 	return clearedAlarm, nil
 }
 
-// AcknowledgeAlarm acknowledges an alarm and ties an Acknowledgement object to it.
-func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId uuid.UUID, ack model.Acknowledgement) (model.Alarm, error) {
+// AcknowledgeAlarm acknowledges the newest alarm for a device and rule.
+func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId uuid.UUID, ackBy string) (model.Alarm, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -670,8 +670,13 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId
 		return model.Alarm{}, ErrAlarmAlreadyAcknowledged
 	}
 
-	ack.AlarmID = alarm.ID
-	ack.AcknowledgedAt = s.now()
+	// Make acknowledgement if none
+	ack := model.Acknowledgement{
+		AlarmID:        alarm.ID,
+		AcknowledgedBy: ackBy,
+		AcknowledgedAt: s.now(),
+	}
+	// Set acknowledgement
 	s.acknowledgements[alarm.ID] = ack
 
 	newAlarm := alarmList[alarmIndex]

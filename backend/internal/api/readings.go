@@ -15,8 +15,6 @@ import (
 )
 
 func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
-	// Close data stream at the end
-	defer r.Body.Close()
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

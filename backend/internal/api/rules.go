@@ -105,8 +105,6 @@ func (s *Server) getRulesListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createRuleHandler(w http.ResponseWriter, r *http.Request) {
-	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
-	defer r.Body.Close()
 
 	// Validate method
 	if r.Method != http.MethodPost {
@@ -259,8 +257,6 @@ func (s *Server) createRuleHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateRuleHandler(w http.ResponseWriter, r *http.Request) {
-	// Close body since it is data stream once function is finished, to free system resources and prevent data leak.
-	defer r.Body.Close()
 
 	// Validate method
 	if r.Method != http.MethodPatch {
