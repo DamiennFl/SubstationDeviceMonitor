@@ -522,8 +522,8 @@ func (s *Store) ListAlarms(ctx context.Context, deviceID uuid.UUID) ([]model.Ala
 	defer s.mu.RUnlock()
 
 	// Check that device actually exists first, before getting alarms
-	device, ok := s.devices[deviceID]
-	if !ok || device.DeletedAt != nil {
+	_, ok := s.devices[deviceID]
+	if !ok {
 		return []model.AlarmWithAcknowledgement{}, ErrDeviceNotFound
 	}
 
