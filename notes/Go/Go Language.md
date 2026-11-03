@@ -465,3 +465,7 @@ sort.Slice(slice, func(i, j int) bool { // We are inside function definition
 ### Context
 
 context package allows for proper handling of lifecycle of goroutines, e.g. for things like database calls. Instead of having to manually handle error cases like calling a db and the process being cancelled, and thus having to discard the data, context will automatically handle things like discarding and deadlines specifically for concurrent goroutines. Helps prevent infinitely hanging goroutines.
+
+### Server-Side Events
+
+Live updates endpoints can be created using Server-Side-Events (SSE, as I defined in the architecture). To do this, we can use the standard Golang net/http with http.Flusher, which pushes real-time updates to the browser.
