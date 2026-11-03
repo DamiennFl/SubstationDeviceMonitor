@@ -964,13 +964,13 @@ func ruleShouldTrip(rule model.Rule, value any, active bool) bool {
 				return number < *rule.Limit+deadband
 			}
 		}
-		// If not active, require the reading to cross the trip + deadband
-		// threshold before raising an alarm.
+		// If not active, evaluate against the configured setpoint. Deadband
+		// only affects the return-to-normal boundary above.
 		switch *rule.Comparison {
 		case model.ComparisonGT:
-			return number > *rule.Limit+deadband
+			return number >= *rule.Limit
 		case model.ComparisonLT:
-			return number < *rule.Limit-deadband
+			return number <= *rule.Limit
 		}
 	case model.RuleTypeBand:
 		if rule.LowerLimit == nil || rule.UpperLimit == nil {

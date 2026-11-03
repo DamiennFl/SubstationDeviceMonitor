@@ -21,3 +21,5 @@ Question: Why use PATCH methods over PUT when updating?
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.
+ 
+ - Not implemented right now: On-delay alarm activation, e.g. raise alarm after n-seconds of value out of range. This would mean maintaining a sliding window of values for each measurement for rule for each device. I don't want to do that for this project.

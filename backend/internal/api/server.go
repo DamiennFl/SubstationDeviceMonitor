@@ -21,12 +21,12 @@ func NewServer(store *store.Store) *Server {
 	}
 }
 
-func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+func (s *Server) live(w http.ResponseWriter, r *http.Request) {
 	// Just say OK
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) live(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
 	// Just say OK
 	w.WriteHeader(http.StatusOK)
 }
@@ -56,7 +56,7 @@ func (server *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/devices/{device_id}/alarms", server.getDeviceAlarmListHandler)
 	mux.HandleFunc("POST /api/devices/{device_id}/alarms/{alarm_id}/acknowledge", server.acknowledgeAlarmHandler)
 
-	mux.HandleFunc("GET /health", server.health)
 	mux.HandleFunc("GET /live", server.live)
+	mux.HandleFunc("GET /ready", server.ready)
 	return mux
 }

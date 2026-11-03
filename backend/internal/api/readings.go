@@ -118,7 +118,6 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set content type, set status to created.
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 
 	// INTERNAL API CALL, we do not return encoded JSON body.

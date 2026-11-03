@@ -1301,7 +1301,7 @@ func TestAddReadingClearsAlarmAfterDeadband(t *testing.T) {
 	}
 
 	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 106)); err != nil {
+	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 100)); err != nil {
 		t.Fatalf("AddReading(trip) error = %v", err)
 	}
 	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(time.Minute), 102)); err != nil {
