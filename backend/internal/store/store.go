@@ -640,23 +640,21 @@ func (s *Store) ClearAlarm(ctx context.Context, alarm model.Alarm, clearedTime t
 }
 
 // AcknowledgeAlarm acknowledges an alarm and ties an Acknowledgement object to it.
-func (s *Store) AcknowledgeAlarm(ctx context.Context, alarm model.Alarm, ack model.Acknowledgement) (model.Alarm, error) {
+func (s *Store) AcknowledgeAlarm(ctx context.Context, deviceID uuid.UUID, ruleId uuid.UUID, ack model.Acknowledgement) (model.Alarm, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if alarm.ID == uuid.Nil {
-		return model.Alarm{}, ErrNilAlarmUUID
-	}
-
-	alarmList, ok := s.alarms[alarm.DeviceID]
+	// Get Alarm list from deviceID
+	alarmList, ok := s.alarms[deviceID]
 	if !ok {
 		return model.Alarm{}, ErrAlarmNotFound
 	}
 
-	// Find the exact stored alarm by ID. Cleared alarms may still be acknowledged.
+	// Find the newest stored alarm for the device and rule. Cleared alarms may
+	// still be acknowledged.
 	alarmIndex := -1
 	for index, storedAlarm := range alarmList {
-		if storedAlarm.ID == alarm.ID {
+		if storedAlarm.RuleID != nil && *storedAlarm.RuleID == ruleId {
 			alarmIndex = index
 			break
 		}
@@ -664,6 +662,8 @@ func (s *Store) AcknowledgeAlarm(ctx context.Context, alarm model.Alarm, ack mod
 	if alarmIndex == -1 {
 		return model.Alarm{}, ErrAlarmNotFound
 	}
+
+	alarm := alarmList[alarmIndex]
 
 	// The acknowledgement map is the single source of truth.
 	if _, acknowledged := s.acknowledgements[alarm.ID]; acknowledged {
