@@ -16,7 +16,8 @@ Question: Why use PATCH methods over PUT when updating?
 
  General Questions to learn about:
   - When should you .Encode into JSON, and when should you .Marshal JSON and then return it? Is there ever a time where you should? Seems like .Encode uses .Marshal under the hood, based on the docstring, so it's probably the same actually.
-
+  - How does mux.HandleFunc() work explicitly? Where do the ResponseWriter and Request come from?
+  - How 
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.

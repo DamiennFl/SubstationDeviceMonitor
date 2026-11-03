@@ -48,8 +48,8 @@ type UpdateRuleInput struct {
 	TripState   *State       `json:"tripState"`
 }
 
-// ReadingInput contains a reading submitted for the device in the URL path.
-type ReadingInput struct {
+// CreateReadingInput contains a reading submitted for the device in the URL path.
+type CreateReadingInput struct {
 	Timestamp     time.Time `json:"timestamp"`
 	CurrentA      *float64  `json:"currentA"`
 	CurrentB      *float64  `json:"currentB"`

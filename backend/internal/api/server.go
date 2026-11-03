@@ -41,5 +41,8 @@ func (server *Server) Routes() http.Handler {
 	mux.HandleFunc("PATCH /api/devices/{device_id}/rules/{rule_id}", server.updateRuleHandler)
 	mux.HandleFunc("DELETE /api/devices/{device_id}/rules/{rule_id}", server.deleteRuleHandler)
 
+	mux.HandleFunc("POST /api/devices/{device_id}/readings", server.createReadingHandler) // Only for Simulator
+	mux.HandleFunc("GET /api/devices/{device_id}/readings", server.getReadingsListHandler)
+
 	return mux
 }
