@@ -1,5 +1,23 @@
 # React + TypeScript + Vite
 
+## Development
+
+From `frontend/substation-device-monitoring`, start the Vite development server:
+
+```bash
+npm run dev
+```
+
+Vite transpiles TypeScript but does not type-check it. Run the type checker in a
+second terminal so errors are rechecked whenever a file is saved:
+
+```bash
+npm run typecheck:watch
+```
+
+For a one-time check, run `npm run typecheck`. The repository workspace is
+configured to use this project's local TypeScript version in VS Code.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
