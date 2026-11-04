@@ -1,1 +1,4 @@
 backend/bin
+backend/cmd/simulator/simulator
+.gitignore
+backend/cmd/api/api
