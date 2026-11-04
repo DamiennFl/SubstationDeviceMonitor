@@ -26,9 +26,11 @@ Question: How do you make sure the SSE handler is decoupled from the Store, to m
 
 Limitations:
  - Event broker is very simple. Publishing is best-effort for delivery. Invalid event envelopes still return validation errors, but events may be dropped for slow or disconnected subscribers without reporting a delivery error. This may also de-sync the application from the actual state of the Store (and later the DB). The more important source is the store/DB, thus REST call returns will be the source of truth, while SSE events do their best to stay in sync.
+ - Simulator sends readings sequentially, for simplicity.
 
 Improvements
  - Right now, when a device is deleted, or a rule is disabled/deleted, nothing will show up in the live events. Could improve live events to add this as well.
+ - Make simulator send readings via concurrent goroutines, instead of sequentially.
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.
