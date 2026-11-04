@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
 
   // Define forwarding proxy, so requests from frontend go to localhost (for now) via /api.
-  // Frontend code can now just define /api, instead of having to define the target path.
-  // This means during deployment this can be updated to the api path instead of localhost.
+  // Frontend code can now just define /api/<something>, instead of having to define the target path.
+  // Note: This is purely for development, in prod Vite builds frontend without vite.config.ts
   server: {
     proxy: {
       '/api': {
