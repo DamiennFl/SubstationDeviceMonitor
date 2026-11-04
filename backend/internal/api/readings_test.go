@@ -61,9 +61,8 @@ func getReadingsRequest(method, deviceID string, from, to time.Time) *http.Reque
 	return request
 }
 
-func testReading(deviceID uuid.UUID, timestamp time.Time, currentA float64) model.Reading {
+func testReading(timestamp time.Time, currentA float64) model.Reading {
 	return model.Reading{
-		DeviceID:      deviceID,
 		Timestamp:     timestamp,
 		CurrentA:      currentA,
 		CurrentB:      11,
@@ -101,7 +100,7 @@ func TestCreateReadingHandler(t *testing.T) {
 func TestCreateReadingHandlerDuplicate(t *testing.T) {
 	appStore, device := testReadingAPIStore(t)
 	timestamp := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
-	if _, err := appStore.AddReading(t.Context(), testReading(device.ID, timestamp, 10)); err != nil {
+	if _, err := appStore.AddReading(t.Context(), device.ID, testReading(timestamp, 10)); err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
 
@@ -235,10 +234,10 @@ func TestCreateReadingHandlerWrongMethod(t *testing.T) {
 func TestGetReadingsListHandler(t *testing.T) {
 	appStore, device := testReadingAPIStore(t)
 	from := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
-	inRange := testReading(device.ID, from.Add(time.Minute), 20)
-	outOfRange := testReading(device.ID, from.Add(2*time.Hour), 30)
+	inRange := testReading(from.Add(time.Minute), 20)
+	outOfRange := testReading(from.Add(2*time.Hour), 30)
 	for _, reading := range []model.Reading{inRange, outOfRange} {
-		if _, err := appStore.AddReading(t.Context(), reading); err != nil {
+		if _, err := appStore.AddReading(t.Context(), device.ID, reading); err != nil {
 			t.Fatalf("AddReading() error = %v", err)
 		}
 	}

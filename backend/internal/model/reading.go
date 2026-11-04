@@ -2,13 +2,10 @@ package model
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Reading contains a device measurement.
 type Reading struct {
-	DeviceID      uuid.UUID `json:"deviceId"`      // Device ID
 	Timestamp     time.Time `json:"timestamp"`     // Timestamp of Reading
 	CurrentA      float64   `json:"currentA"`      // Current A (Amps)
 	CurrentB      float64   `json:"currentB"`      // Current B (Amps)

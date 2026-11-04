@@ -145,7 +145,6 @@ func TestPublishReadingResultEvents(t *testing.T) {
 	raisedAt := time.Date(2026, 11, 3, 20, 0, 0, 0, time.UTC)
 	clearedAt := raisedAt.Add(time.Minute)
 	reading := model.Reading{
-		DeviceID:      deviceID,
 		Timestamp:     raisedAt,
 		BreakerStatus: model.StateClosed,
 	}
@@ -163,7 +162,7 @@ func TestPublishReadingResultEvents(t *testing.T) {
 		return &reason
 	}()
 
-	if err := server.publishReadingResultEvents(model.ReadingResult{
+	if err := server.publishReadingResultEvents(deviceID, model.ReadingResult{
 		Reading: reading,
 		RuleEvaluationResult: model.RuleEvaluationResult{
 			RaisedAlarms:  []model.Alarm{raisedAlarm},
@@ -197,8 +196,8 @@ func TestPublishReadingResultEvents(t *testing.T) {
 }
 
 func TestCreateEventPayloads(t *testing.T) {
-	reading := model.Reading{DeviceID: uuid.New(), Timestamp: time.Now().UTC()}
-	alarm := model.Alarm{ID: uuid.New(), DeviceID: reading.DeviceID, RaisedAt: reading.Timestamp}
+	reading := model.Reading{Timestamp: time.Now().UTC()}
+	alarm := model.Alarm{ID: uuid.New(), DeviceID: uuid.New(), RaisedAt: reading.Timestamp}
 
 	tests := []struct {
 		name     string
@@ -208,7 +207,7 @@ func TestCreateEventPayloads(t *testing.T) {
 		{
 			name:     "reading",
 			create:   func() (string, error) { return createReadingPayload(reading) },
-			contains: `"deviceId"`,
+			contains: `"timestamp"`,
 		},
 		{
 			name:     "raised alarm",

@@ -40,9 +40,8 @@ func testAlarm(deviceID, ruleID uuid.UUID, raisedAt time.Time) model.Alarm {
 }
 
 // testReading minimal model
-func testReading(deviceID uuid.UUID, timestamp time.Time, currentA float64) model.Reading {
+func testReading(timestamp time.Time, currentA float64) model.Reading {
 	return model.Reading{
-		DeviceID:  deviceID,
 		Timestamp: timestamp,
 		CurrentA:  currentA,
 	}
@@ -1117,10 +1116,10 @@ func TestAddReading(t *testing.T) {
 	// Create resding
 	seenAt := time.Date(2026, 10, 31, 12, 5, 0, 0, time.UTC)
 	s.now = func() time.Time { return seenAt }
-	reading := testReading(device.ID, time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), 12.5)
+	reading := testReading(time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC), 12.5)
 
 	// Add reading and ensure no error
-	got, err := s.AddReading(t.Context(), reading)
+	got, err := s.AddReading(t.Context(), device.ID, reading)
 	if err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
@@ -1153,15 +1152,15 @@ func TestAddReadingEdgeCase(t *testing.T) {
 	}
 	// Create reading and ensure no error
 	timestamp := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	reading := testReading(device.ID, timestamp, 12.5)
-	if _, err := s.AddReading(t.Context(), reading); err != nil {
+	reading := testReading(timestamp, 12.5)
+	if _, err := s.AddReading(t.Context(), device.ID, reading); err != nil {
 		t.Fatalf("AddReading(first) error = %v", err)
 	}
 
 	// Create duplicate reading
-	duplicate := testReading(device.ID, timestamp, 20.0)
+	duplicate := testReading(timestamp, 20.0)
 	// Ensure error occurs when trying to add duplicate
-	if _, err := s.AddReading(t.Context(), duplicate); !errors.Is(err, ErrDuplicateReading) {
+	if _, err := s.AddReading(t.Context(), device.ID, duplicate); !errors.Is(err, ErrDuplicateReading) {
 		t.Fatalf("AddReading(second) error = %v, want ErrDuplicateReading", err)
 	}
 	// Validate list contains only one
@@ -1174,9 +1173,10 @@ func TestAddReadingEdgeCase(t *testing.T) {
 // Invalid case: AddReading rejects an unknown device.
 func TestAddReadingInvalidCase(t *testing.T) {
 	// Create reading with unknown device
-	reading := testReading(uuid.New(), time.Now().UTC(), 12.5)
+	deviceID := uuid.New()
+	reading := testReading(time.Now().UTC(), 12.5)
 	// Try to add reading, ensure error occurs
-	if _, err := NewStore().AddReading(t.Context(), reading); !errors.Is(err, ErrDeviceNotFound) {
+	if _, err := NewStore().AddReading(t.Context(), deviceID, reading); !errors.Is(err, ErrDeviceNotFound) {
 		t.Fatalf("AddReading() error = %v, want ErrDeviceNotFound", err)
 	}
 }
@@ -1206,8 +1206,8 @@ func TestAddReadingRaisesAlarm(t *testing.T) {
 	}
 
 	timestamp := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	reading := testReading(device.ID, timestamp, 101)
-	if _, err := s.AddReading(t.Context(), reading); err != nil {
+	reading := testReading(timestamp, 101)
+	if _, err := s.AddReading(t.Context(), device.ID, reading); err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
 
@@ -1257,10 +1257,10 @@ func TestAddReadingDoesNotDuplicateActiveAlarm(t *testing.T) {
 
 	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	for _, reading := range []model.Reading{
-		testReading(device.ID, base, 101),
-		testReading(device.ID, base.Add(time.Minute), 102),
+		testReading(base, 101),
+		testReading(base.Add(time.Minute), 102),
 	} {
-		if _, err := s.AddReading(t.Context(), reading); err != nil {
+		if _, err := s.AddReading(t.Context(), device.ID, reading); err != nil {
 			t.Fatalf("AddReading() error = %v", err)
 		}
 	}
@@ -1301,13 +1301,13 @@ func TestAddReadingClearsAlarmAfterDeadband(t *testing.T) {
 	}
 
 	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base, 101)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(base, 101)); err != nil {
 		t.Fatalf("AddReading(trip) error = %v", err)
 	}
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(time.Minute), 102)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(base.Add(time.Minute), 102)); err != nil {
 		t.Fatalf("AddReading(within deadband) error = %v", err)
 	}
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(2*time.Minute), 95)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(base.Add(2*time.Minute), 95)); err != nil {
 		t.Fatalf("AddReading(clear) error = %v", err)
 	}
 
@@ -1347,10 +1347,10 @@ func TestAddReadingIgnoresLateReadingForAlarms(t *testing.T) {
 	}
 
 	base := time.Date(2026, 10, 31, 10, 0, 0, 0, time.UTC)
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(5*time.Minute), 101)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(base.Add(5*time.Minute), 101)); err != nil {
 		t.Fatalf("AddReading(trip) error = %v", err)
 	}
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, base.Add(3*time.Minute), 95)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(base.Add(3*time.Minute), 95)); err != nil {
 		t.Fatalf("AddReading(late) error = %v", err)
 	}
 
@@ -1387,7 +1387,7 @@ func TestAddReadingIgnoresDisabledRule(t *testing.T) {
 		t.Fatalf("CreateRule() error = %v", err)
 	}
 
-	if _, err := s.AddReading(t.Context(), testReading(device.ID, time.Now().UTC(), 101)); err != nil {
+	if _, err := s.AddReading(t.Context(), device.ID, testReading(time.Now().UTC(), 101)); err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
 
@@ -1411,13 +1411,13 @@ func TestListReadings(t *testing.T) {
 	// Create 3 readings
 	base := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	readings := []model.Reading{
-		testReading(device.ID, base, 10),
-		testReading(device.ID, base.Add(2*time.Minute), 30),
-		testReading(device.ID, base.Add(time.Minute), 20),
+		testReading(base, 10),
+		testReading(base.Add(2*time.Minute), 30),
+		testReading(base.Add(time.Minute), 20),
 	}
 	// Add each reading, ensure no errors
 	for _, reading := range readings {
-		if _, err := s.AddReading(t.Context(), reading); err != nil {
+		if _, err := s.AddReading(t.Context(), device.ID, reading); err != nil {
 			t.Fatalf("AddReading() error = %v", err)
 		}
 	}

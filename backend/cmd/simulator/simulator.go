@@ -230,7 +230,7 @@ func (s *Simulator) getDeviceRules(deviceID uuid.UUID) ([]model.Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Make sure to close body since response is data stream, once we are done with it
+	// Make sure to close body since response is data usstream, once we are done with it
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("rule fetch returned status %s", response.Status)
@@ -247,9 +247,8 @@ func (s *Simulator) getDeviceRules(deviceID uuid.UUID) ([]model.Rule, error) {
 // Create basic reading with default vals and now timestamp, with deviceID.
 // Backup if getting rules fails, so the device still sends something.
 // Subject to change if during testing this generates a ton of unnecessary alarms.
-func baseReading(deviceID uuid.UUID) model.Reading {
+func baseReading() model.Reading {
 	reading := DefaultReadingValues
-	reading.DeviceID = deviceID
 	reading.Timestamp = time.Now().UTC()
 	return reading
 }
@@ -286,7 +285,7 @@ func setMeasurement(reading *model.Reading, measurement model.Measurement, value
 // needed for a rule will be default values.
 func (s *Simulator) generateNominalReading(deviceID uuid.UUID) (model.Reading, error) {
 	// Start with base reading
-	reading := baseReading(deviceID)
+	reading := baseReading()
 	// Get list of rules
 	rules, err := s.getDeviceRules(deviceID)
 	// Getting rules failed, use backup defaults
@@ -337,7 +336,7 @@ func (s *Simulator) generateNominalReading(deviceID uuid.UUID) (model.Reading, e
 // reading which will trip a Rule. The rule is randomly chosen.
 func (s *Simulator) generateTrippingReading(deviceID uuid.UUID) (model.Reading, error) {
 	// Start with base reading
-	reading := baseReading(deviceID)
+	reading := baseReading()
 	// Get device's rules.
 	rules, err := s.getDeviceRules(deviceID)
 	// If GET rules fails, then fall back to default values.

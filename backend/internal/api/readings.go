@@ -89,7 +89,6 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reading := model.Reading{
-		DeviceID:      deviceID,
 		Timestamp:     readingInput.Timestamp,
 		CurrentA:      *readingInput.CurrentA,
 		CurrentB:      *readingInput.CurrentB,
@@ -103,7 +102,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		BreakerStatus: *readingInput.BreakerStatus,
 	}
 
-	readingResult, err := s.store.AddReading(r.Context(), reading)
+	readingResult, err := s.store.AddReading(r.Context(), deviceID, reading)
 
 	if err != nil {
 		switch {
@@ -123,7 +122,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	// Publish reading event. Comes after HTTP status set because
 	// failing a publish event does not fail the underlying store logic, which is
 	// more important.
-	if err := s.publishReadingResultEvents(readingResult); err != nil {
+	if err := s.publishReadingResultEvents(deviceID, readingResult); err != nil {
 		log.Printf("failed to publish reading events: %v", err)
 		return
 	}
@@ -193,7 +192,7 @@ func (s *Server) getReadingsListHandler(w http.ResponseWriter, r *http.Request) 
 
 // publishReadingResultEvents publishes the accepted reading first, followed by
 // alarms raised and cleared while evaluating the reading.
-func (s *Server) publishReadingResultEvents(readingResult model.ReadingResult) error {
+func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult model.ReadingResult) error {
 	// Call payload creation helper
 	readingPayload, err := createReadingPayload(readingResult.Reading)
 	if err != nil {
@@ -202,7 +201,7 @@ func (s *Server) publishReadingResultEvents(readingResult model.ReadingResult) e
 	// Publish new reading event first through server's event broker.
 	if err := s.eventBroker.Publish(model.Event{
 		EventID:        uuid.New(),
-		DeviceID:       readingResult.Reading.DeviceID,
+		DeviceID:       deviceID,
 		EventType:      model.ReadingEvent,
 		EventTimestamp: readingResult.Reading.Timestamp,
 		Payload:        readingPayload,
