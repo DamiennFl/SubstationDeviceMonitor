@@ -469,3 +469,8 @@ context package allows for proper handling of lifecycle of goroutines, e.g. for 
 ### Server-Side Events
 
 Live updates endpoints can be created using Server-Side-Events (SSE, as I defined in the architecture). To do this, we can use the standard Golang net/http with http.Flusher, which pushes real-time updates to the browser.
+
+### sync.WaitGroup
+
+WaitGroup is a concurrency-safe semaphore that synchronizes goroutines. It blocks execution of a calling function until a specific collection of background goroutines are finished. Requires underlying functions to use mutex locks where necessary to prevent race conditions still.
+"A WaitGroup is a counting semaphore typically used to wait for a group of goroutines or tasks to finish."
