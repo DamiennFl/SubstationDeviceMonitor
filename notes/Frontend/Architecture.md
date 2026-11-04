@@ -7,7 +7,7 @@ myself.
 
 Dependency errors after build. Typescript@7.0.2 was installed, but typescript-eslint@8.72.1 requires <6.1.0. Fixed by npm installing TS 5.9.3, then npm audit fix --force. npm ls produced no dependency errors.
 
-### Scaffolding
+### Visual Scaffolding
 
 What does the frontend need?
 
@@ -31,3 +31,34 @@ Alarm Page:
 
 Live Events:
  - For now just one large box of events as they come in.
+
+So, all required Components:
+ - Application Shell
+ - Router
+ - Typescript API module to separate frontend and backend
+ - A shared state, perhaps global if necessary
+ - Loading, Error, Empty, Confirm, and Notification Components
+
+ - Header Bar
+ - Sidebar
+    - Button components (separate component or simple buttons)
+ - Dashboard Shell Component
+    - Info Display
+    - Alarm Display
+    - Live Events Display
+ - Device List Page Shell Component
+    - Device Table Component with clickable devices
+    - Create Device and Delete Device Buttons
+
+ - Device Page Shell Component
+    - Device Info Display
+    - Device Rules List
+    - Device Rules Create Edit and Delete Buttons, likely on same line as the Rule, and values are editable in line. No need for separate page.
+    - Device Edit and Delete Buttons
+
+ - Alarms Page Shell Component
+    - Alarms List
+    - Acknowledge Button for one or more selected alarms
+
+ - Events Page Shell Component
+    - Large Table list of live events. Can click on event and it will display the raw JSON.
