@@ -1,3 +1,5 @@
+import type Devices from "../pages/Devices"
+
 // Types.tsx contains matching types from the Store backend.
 export const DeviceType = {
   Relay: 'relay',
@@ -44,12 +46,12 @@ export const State = {
 export type State = typeof State[keyof typeof State]
 
 export const DeviceStatus = {
-    DeviceStatusOnline: "online",
+  DeviceStatusOnline: "online",
 	DeviceStatusPending: "pending",
 	DeviceStatusStale: "stale"
 }
 
-export type DeviceStatus = typeof State[keyof typeof State]
+export type DeviceStatus = typeof DeviceStatus[keyof typeof DeviceStatus]
 
 // Device Input. Specifically match just the input type, not the full Device.
 export type CreateDeviceInput =  {

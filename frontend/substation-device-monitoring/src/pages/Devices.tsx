@@ -5,9 +5,62 @@ import "./devices.css"
 
 // Main Page component for Device List, for clean page definition.
 function Devices() {
+    const [showCreateDeviceRow, setShowCreateDeviceRow] = useState(false)
+
     return (
         <div className="main-page">
+            <DeviceCreateButton setShowCreateDeviceRow={setShowCreateDeviceRow} />
+            <DeviceRowHeader />
+            {showCreateDeviceRow && <DeviceCreateRow />}
             <DeviceList />
+        </div>
+    )
+}
+
+function DeviceCreateButton({
+    setShowCreateDeviceRow,
+}: {
+    setShowCreateDeviceRow: (show: boolean) => void
+}) {
+    return (
+        <div className="device-page-button-container">
+            <button
+                className="device-create-button"
+                onClick={() => setShowCreateDeviceRow(true)}
+            >
+                Create Device
+            </button>
+        </div>
+    )
+}
+
+function DeviceCreateRow() {
+    const [name, setName] = useState("")
+    const [ip, setIp] = useState("")
+
+    return (
+        <div className="device-row device-create-row">
+            <div className="device-info">
+                <label className="device-create-field">
+                    Name
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        placeholder="Device name"
+                    />
+                </label>
+                <label className="device-create-field">
+                    IP
+                    <input
+                        type="text"
+                        value={ip}
+                        onChange={(event) => setIp(event.target.value)}
+                        placeholder="192.168.1.1"
+                    />
+                </label>
+            </div>
+            <DeviceCreateButtons />
         </div>
     )
 }
@@ -21,7 +74,7 @@ function DeviceList() {
         async function loadDevices() {
             // Try to fetch devices
             try {
-                const response = await fetch("api/devices")
+                const response = await fetch("/api/devices")
 
                 // Handle response error
                 if (!response.ok) {
@@ -50,7 +103,7 @@ function DeviceList() {
 
     // Map all devices in device rows.
     return (
-        <div>
+        <div className="device-table">
             {devices.map((device) => (
                 <DeviceRow
                     key={device.deviceId}
@@ -67,6 +120,19 @@ function DeviceRow({ device }: {device: Device}) {
         <div className="device-row">
             <DeviceInfo device={device}/>
             <DeviceButtons />
+        </div>
+    )
+}
+
+function DeviceRowHeader() {
+    return (
+        <div className="device-row device-header-row">
+            <div className="device-info device-header-info">
+                <div className="device-info__header">Name</div>
+                <div className="device-info__header">IP</div>
+                <div className="device-info__header">Status</div>
+            </div>
+            <div className="device-buttons" aria-hidden="true" />
         </div>
     )
 }
@@ -93,7 +159,23 @@ function DeviceInfo({ device }: { device: Device }) {
 function DeviceButtons() {
     return (
         <div className="device-buttons">
-            {/* <NavLink />  Should link to device specific dashboard*/}
+            <button className="device-button">
+                <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    aria-label="Open device page"
+                >
+                    <path
+                        d="M7 2h3v3M10 2 6.25 5.75M9 7.5V10H2V3h2.5"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                </svg>
+            </button>
             <button className="device-button">
                 <svg
                     width="12"
@@ -118,6 +200,46 @@ function DeviceButtons() {
                     viewBox="0 0 12 12"
                     fill="none"
                     aria-label="Delete device"
+                >
+                    <path
+                        d="m3 3 6 6M9 3 3 9"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                    />
+                </svg>
+            </button>
+        </div>
+    )
+}
+
+function DeviceCreateButtons() {
+    return (
+        <div className="device-buttons">
+            <button className="device-button">
+                <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    aria-label="Create device"
+                >
+                    <path
+                        d="m2.5 6.25 2.25 2.25L9.5 3.75"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                </svg>
+            </button>
+            <button className="device-button">
+                <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    aria-label="Cancel creating device"
                 >
                     <path
                         d="m3 3 6 6M9 3 3 9"

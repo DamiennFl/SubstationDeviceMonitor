@@ -15,7 +15,16 @@ body {
   min-height: 100svh;
 }
 
+.main-page {
+    box-sizing: border-box;
+    min-height: calc(100svh - 4rem);
+    padding: 3rem;
+}
+
 .app-shell {
+  box-sizing: border-box;
+  margin-left: 8rem;
+  overflow: auto;
   min-height: 100svh;
   padding-top: 4rem;
   background: #f8fafc;
