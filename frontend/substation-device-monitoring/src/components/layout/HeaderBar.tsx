@@ -1,20 +1,22 @@
-
 type HeaderBarProps = {
   darkMode: boolean
   onToggleTheme: () => void
 }
 
-export function HeaderBar({ darkMode, onToggleTheme }: HeaderBarProps) {
+function HeaderBar({ darkMode, onToggleTheme }: HeaderBarProps) {
     return (
       <header className="header-bar">
         <div className="header-bar__content">
           <span className="header-bar__title">Substation Device Monitoring</span>
         </div>
 
+        <div>
+        
         <ThemeToggle
           darkMode={darkMode}
           onToggleTheme={onToggleTheme}
         />
+        </div>
       </header>
     )
 }

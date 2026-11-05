@@ -17,11 +17,13 @@ body {
 
 .app-shell {
   min-height: 100svh;
+  padding-top: 4rem;
   background: #f8fafc;
   color: #0f172a;
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
+  font-size: 0.75rem;
 }
 
 .app-shell.dark {
@@ -40,7 +42,7 @@ body {
   justify-content: space-between;
   height: 4rem;
   padding: 0 1rem;
-  border-color: #475569;
+  border-bottom: 1px solid #475569;
   background: #042D56;
   color: #f1f5f9;
   box-sizing: border-box;
@@ -53,7 +55,6 @@ body {
 }
 
 .header-bar__title {
-  font-size: .75rem;
   font-weight: 700;
 }
 
@@ -68,5 +69,34 @@ body {
 }
 
 .theme-toggle:hover {
+  background: rgb(148 163 184 / 20%);
+}
+
+.side-bar {
+  position: fixed;
+  top: 4rem;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 8rem;
+  box-sizing: border-box;
+  border-right: 1px solid #475569;
+  background: #042D56;
+  color: #f1f5f9;
+}
+
+.side-bar__button {
+  display: block;
+  padding: 0.75rem 1rem;
+  color: #f1f5f9;
+  border-bottom: 1px solid #475569;
+  background: transparent;
+  text-decoration: none;
+}
+
+.side-bar__button:hover,
+.side-bar__button[aria-current='page'] {
   background: rgb(148 163 184 / 20%);
 }
