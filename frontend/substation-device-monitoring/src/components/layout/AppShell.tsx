@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import HeaderBar from './HeaderBar'
 import SideBar from './SideBar'
 import Devices from '../../pages/Devices'
+import SingleDevice from '../../pages/SingleDevice'
 
 // Main App component
 export function AppShell() {
@@ -24,6 +25,8 @@ export function AppShell() {
                 <Routes>
                     {/* Route to Devices page when /devices is linked via a NavLink somewhere else. */}
                     <Route path="/devices" element={<Devices />} />
+                    {/* :deviceId is read in SingleDevice via useParams. */}
+                    <Route path="/devices/:deviceId" element={<SingleDevice />} />
                 </Routes>
             </div>
         </BrowserRouter>

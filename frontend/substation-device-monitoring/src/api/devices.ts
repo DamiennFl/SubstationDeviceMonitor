@@ -1,4 +1,4 @@
-import type { Device, CreateDeviceInput } from "../types/Types"
+import type { Device, CreateDeviceInput, UpdateDeviceInput } from "../types/Types"
 
 // Async function which will load devices
 export async function loadDevices(): Promise<Device[]> {
@@ -38,4 +38,43 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
     // 201 Created returns the new device as JSON.
     const createdDevice: Device = await response.json()
     return createdDevice
+}
+export async function updateDevice(deviceId: string, input: UpdateDeviceInput): Promise<Device> {
+    // Await device PATCH.
+    const response = await fetch(`/api/devices/${deviceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    })
+
+    // Backend errors come from http.Error, which is plain text, not JSON. e.g. 400 Invalid JSON payload, 409 Duplicate.
+    if (!response.ok) {
+        const message = (await response.text()).trim()
+        // TODO: Find some way of logging message. For now just
+        // throw plain error to obfuscate errors from backend.
+        throw new Error(`Failed to update device: ${response.status + ": " + message}`)
+    }
+
+    // 201 Created returns the new device as JSON.
+    const updatedDevice: Device = await response.json()
+    return updatedDevice
+}
+
+export async function deleteDevice(deviceId: string): Promise<string> {
+    // Await device DELETE.
+    const response = await fetch(`/api/devices/${deviceId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" }
+    })
+
+    // Backend errors come from http.Error, which is plain text, not JSON. e.g. 400 Invalid JSON payload, 409 Duplicate.
+    if (!response.ok) {
+        const message = (await response.text()).trim()
+        // TODO: Find some way of logging message.
+        throw new Error(`Failed to DELETE device: ${response.status + ": " + message}`)
+    }
+
+    // 204 No content returned here, 
+    const deletedDeviceStatus: string = await response.json()
+    return deletedDeviceStatus
 }

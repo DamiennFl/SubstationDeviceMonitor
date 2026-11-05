@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import type { Device } from "../types/Types"
 import { DeviceType } from "../types/Types" // Not imported as type to reference value device value directly
-import { loadDevices, createDevice } from "../api/devices"
+import { loadDevices, createDevice, updateDevice, deleteDevice } from "../api/devices"
 import "./devices.css"
 
 // Main Page component for Device List, for clean page definition.
@@ -43,6 +44,14 @@ function Devices() {
             <DeviceList 
                 devices={devices} 
                 error={error}
+                onDeviceUpdated={(updated) =>
+                setDevices((current) =>
+                    current.map((d) => (d.deviceId === updated.deviceId ? updated : d)),
+                )}
+                // Filter out deleted device on deletion while updating devices list
+                onDeviceDeleted={(deleted) => 
+                    setDevices((current) => current.filter((d) => d.deviceId !== deleted))
+                }
             />
         </div>
     )
@@ -162,9 +171,13 @@ function DeviceCreateRow({
 function DeviceList({
     devices,
     error,
+    onDeviceUpdated,
+    onDeviceDeleted,
 }: {
     devices: Device[]
     error: string | null
+    onDeviceUpdated: (device: Device) => void
+    onDeviceDeleted: (deviceId: string) => void
 }) {
     // Map all devices in device rows, if no error. Otherwise return empty div with error.
     return (
@@ -174,6 +187,8 @@ function DeviceList({
                 <DeviceRow
                     key={device.deviceId}
                     device={device}
+                    onUpdated={onDeviceUpdated}
+                    onDeleted={onDeviceDeleted}
                 />
             ))}
         </div>
@@ -181,13 +196,124 @@ function DeviceList({
 }
 
 // Represents one Device
-function DeviceRow({ device }: {device: Device}) {
-    return (
+function DeviceRow({ 
+    device,
+    onUpdated,
+    onDeleted,
+}: {
+    device: Device,
+    onUpdated: (device: Device) => void
+    onDeleted: (deviceId: string) => void
+}) {
+    const [editing, setEditing] = useState(false)
+    const [name, setName] = useState(device.name)
+    const [ip, setIp] = useState(device.ip)
+    const [updateError, setUpdateError] = useState<string | null>(null)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+
+    // Validation and submission async function
+    async function handleUpdate() {
+        // Validate name. Just don't allow empty name: duplicate names are handled by backend.
+        if (name.trim() === "") {
+            setUpdateError("Name is required")
+            return
+        }
+        if (ip.trim() === "") {
+            setUpdateError("IP is required")
+            return
+        }
+
+        // Block multiple submits, and set error to null
+        setSubmitting(true)
+        setUpdateError(null)
+        try {
+            // Update device
+            const editedDevice = await updateDevice(device.deviceId,
+                { name: name.trim(), ip: ip.trim() }
+            )
+            onUpdated(editedDevice) // Pass device back via callback
+            setEditing(false)
+        } catch (error) { // Error caught, likely during device update.
+            // set UpdateError to error message or fall back to default.
+            setUpdateError(
+                error instanceof Error ? error.message : "Failed to update device",
+            )
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    async function handleDelete() {
+        setSubmitting(true)
+        setDeleteError(null)
+
+        try {
+            await deleteDevice(device.deviceId)
+            onDeleted(device.deviceId)
+        } catch (error) {
+            setDeleteError(
+                error instanceof Error ? error.message : "Failed to delete device",
+            )
+        }
+        finally {
+            setSubmitting(false)
+        }
+    }
+
+   return editing ? (
         <div className="device-row">
-            <DeviceInfo device={device}/>
-            <DeviceButtons />
+            <div className="device-info">
+                <label className="device-create-field">
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(event) => setName(event.target.value)}
+                            placeholder="Device name"
+                        />
+                    </label>
+                    <label className="device-create-field">
+                        <input
+                            type="text"
+                            value={ip}
+                            onChange={(event) => setIp(event.target.value)}
+                            placeholder="192.168.1.1"
+                        />
+                    </label>
+                </div>
+                {updateError !== null && (
+                    <div className="device-create-error" role="alert">
+                        {updateError}
+                    </div>
+                )}
+            {/* DeviceCreateButtons handle creating and cancelling. Disable buttons when submitting.*/}
+            <DeviceCreateButtons
+                onConfirm={() => {
+                    void handleUpdate()
+                }}
+
+                onCancel={() => {
+                    setName(device.name)
+                    setIp(device.ip)
+                    setEditing(false)
+                }}
+                disabled={submitting}
+            />
         </div>
-    )
+    ) : (
+        <div className="device-row">
+            <DeviceInfo device={device} />
+            <DeviceButtons
+                deviceId={device.deviceId}
+                onEdit={() => setEditing(true)}
+                onDelete={() => void handleDelete()}/>
+                {deleteError !== null && (
+                    <div className="device-create-error" role="alert">
+                        {deleteError}
+                    </div>
+                )}
+        </div>
+    );
 }
 
 // Device Table header. Defined separately to allow device creation row to render underneath.
@@ -206,28 +332,37 @@ function DeviceRowHeader() {
 
 // Displays the device info: Name, IP, and status.
 function DeviceInfo({ device }: { device: Device }) {
+    // Use device status as key for displaying status color after
     return (
-        // Use device status as key for displaying status color after
-        <div className="device-info">
-            <div className="device-info__static">
-                {device.name}
-            </div>
-            <div className="device-info__static">
-                {device.ip}
-            </div>
-            <div className="device-info__status">
-                {device.status}
-            </div>
+    <div className="device-info">
+        <div className="device-info__static">
+            {device.name}
         </div>
+        <div className="device-info__static">
+            {device.ip}
+        </div>
+        <div className="device-info__status">
+            {device.status}
+        </div>
+    </div>
     )
 }
 
 // DeviceButtons defines right-aligned set of buttons for a device row.
-function DeviceButtons() {
+function DeviceButtons({
+    deviceId,
+    onEdit,
+    onDelete
+} : {
+    deviceId: string
+    onEdit: () => void
+    onDelete: () => void
+}
+) {
     return (
         // In order: View Button, Edit Button, Delete Button
         <div className="device-buttons">
-            <button className="device-button">
+            <Link className="device-button" to={`/devices/${deviceId}`}>
                 <svg
                     width="12"
                     height="12"
@@ -243,8 +378,11 @@ function DeviceButtons() {
                         strokeLinejoin="round"
                     />
                 </svg>
-            </button>
-            <button className="device-button">
+            </Link>
+            <button
+                className="device-button"
+                onClick={onEdit}
+                >
                 <svg
                     width="12"
                     height="12"
@@ -261,7 +399,9 @@ function DeviceButtons() {
                     />
                 </svg>
             </button>
-            <button className="device-button">
+            <button 
+                className="device-button"
+                onClick={onDelete}>
                 <svg
                     width="12"
                     height="12"
