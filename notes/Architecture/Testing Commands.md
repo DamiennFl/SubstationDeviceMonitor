@@ -1,5 +1,3 @@
-If simulator and 
-
 ### Create Device
 curl -v -X POST http://localhost:8080/api/devices \
   -H "Content-Type: application/json" \
@@ -19,7 +17,7 @@ curl -v -X POST http://localhost:8080/api/devices/{device_id}/rules \
     "deadband": 5
   }'
 
-  curl -v -X POST http://localhost:8080/api/devices/063b91c5-0374-418b-9a2d-cea8345e618b/rules \
+  curl -v -X POST http://localhost:8080/api/devices/038c8fca-267d-4f08-8141-0d7d28000007/rules \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Overvoltage",

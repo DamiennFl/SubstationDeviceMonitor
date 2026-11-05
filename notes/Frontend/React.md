@@ -16,3 +16,5 @@ NavLink is a specialized wrapper around React Router's Link component that autom
 ### CSS
 Semantic CSS classes are class names that describe the nature or purpose of the content rather than how it looks visually
 
+### Useful functions
+

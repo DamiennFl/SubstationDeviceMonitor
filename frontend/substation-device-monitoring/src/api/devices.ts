@@ -75,6 +75,5 @@ export async function deleteDevice(deviceId: string): Promise<string> {
     }
 
     // 204 No content returned here, 
-    const deletedDeviceStatus: string = await response.json()
-    return deletedDeviceStatus
+    return ""
 }
