@@ -29,8 +29,9 @@ Limitations:
  - Simulator sends readings sequentially, for simplicity.
 
 Improvements
- - Right now, when a device is deleted, or a rule is disabled/deleted, nothing will show up in the live events. Could improve live events to add this as well.
+ - Right now, when a device is deleted, or a rule is disabled/deleted, nothing will show up in the live events.
  - Make simulator send readings via concurrent goroutines, instead of sequentially.
+ - Use custom error structs and JSON creation for error returns to API, so API does not have to parse.
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.

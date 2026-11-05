@@ -1,5 +1,3 @@
-import type Devices from "../pages/Devices"
-
 // Types.tsx contains matching types from the Store backend.
 export const DeviceType = {
   Relay: 'relay',
@@ -49,7 +47,7 @@ export const DeviceStatus = {
   DeviceStatusOnline: "online",
 	DeviceStatusPending: "pending",
 	DeviceStatusStale: "stale"
-}
+} as const
 
 export type DeviceStatus = typeof DeviceStatus[keyof typeof DeviceStatus]
 
