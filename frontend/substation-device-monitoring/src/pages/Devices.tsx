@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
-import type { Dispatch, SetStateAction } from "react"
-import { DeviceType } from "../types/Types"
-import type { CreateDeviceInput, Device } from "../types/Types"
+import type { Device } from "../types/Types"
+import { DeviceType } from "../types/Types" // Not imported as type to reference value device value directly
+import { loadDevices, createDevice } from "../api/devices"
 import "./devices.css"
 
 // Main Page component for Device List, for clean page definition.
@@ -9,6 +9,22 @@ function Devices() {
     const [devices, setDevices] = useState<Device[]>([]) // Define list of Devices, empty list init
     const [error, setError] = useState<string | null>(null) // Define error, no error init
     const [showCreateDeviceRow, setShowCreateDeviceRow] = useState(false) // Define bool for showing creation row
+
+    // Wrap async in useEffect, otherwise infinite loop because handleLoading calls setDevices
+    // which triggers a re-render, which would cause handleLoading to call again.
+    useEffect(() =>  {
+        async function handleLoading() {
+            try {
+                const deviceList = await loadDevices()
+                setDevices(deviceList)
+                setError(null)
+            } catch (error) {
+                setError(error instanceof Error ? error.message : "Failed to load devices")
+            }
+        }
+
+        void handleLoading()
+    }, [setDevices, setError])
 
     return (
         <div className="main-page">
@@ -26,61 +42,10 @@ function Devices() {
             )}
             <DeviceList 
                 devices={devices} 
-                setDevices={setDevices}
                 error={error}
-                setError={setError}/>
+            />
         </div>
     )
-}
-
-// Async function which will load 
-async function loadDevices({setDevices,setError}: {
-    setDevices: Dispatch<SetStateAction<Device[]>> // Explicitly state setter types.
-    setError: Dispatch<SetStateAction<string | null>>
-}) {
-    // Try to fetch devices
-    try {
-        const response = await fetch("/api/devices") // GET on /api/devices, await response
-
-        // Handle response error
-        if (!response.ok) {
-            throw new Error(`Failed to load devices: ${response.status}`)
-        }
-
-        // Create device list from response. Matching properties are automatically mapped. Assumes JSON is properly formatted.
-        // It should be, since we validate it before sending from backend
-        const deviceList: Device[] = await response.json()
-        // Set list
-        setDevices(deviceList)
-    } catch (error) {
-        // Set error if one occurred
-        setError(
-            error instanceof Error ? error.message : "Failed to load devices",
-        )
-    }
-}
-
-// Sends a POST to create a new device. Returns the created Device, or throws with the backend's message.
-async function createDevice(input: CreateDeviceInput): Promise<Device> {
-    // Await device POST. Like curl, fetch defaults to GET, so we define method here.
-    const response = await fetch("/api/devices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Backend uses DisallowUnknownFields, so only send name, ip, and type.
-        body: JSON.stringify(input),
-    })
-
-    // Backend errors come from http.Error, which is plain text, not JSON. e.g. 400 Invalid JSON payload, 409 Duplicate.
-    if (!response.ok) {
-        //const message = (await response.text()).trim()
-        // TODO: Find some way of logging message. For now just
-        // throw plain error to obfuscate errors from backend.
-        throw new Error(`Failed to create device: ${response.status}`)
-    }
-
-    // 201 Created returns the new device as JSON.
-    const createdDevice: Device = await response.json()
-    return createdDevice
 }
 
 // Create Device button definition. Takes in setShowCreateDeviceRow callback.
@@ -128,7 +93,7 @@ function DeviceCreateRow({
             setCreateError("Name is required")
             return
         }
-        if (ip.trim() == "") {
+        if (ip.trim() === "") {
             setCreateError("IP is required")
             return
         }
@@ -142,7 +107,7 @@ function DeviceCreateRow({
             const createdDevice = await createDevice({ // await creating device
                 name: name.trim(),
                 ip: ip.trim(),
-                type: DeviceType.Relay,
+                type: DeviceType.Relay
             })
             // If no error caught during device creation, onCreated callback gets new device
             onCreated(createdDevice)
@@ -196,27 +161,14 @@ function DeviceCreateRow({
 // List of Devices in a table format
 function DeviceList({
     devices,
-    setDevices,
     error,
-    setError,
 }: {
     devices: Device[]
-    setDevices: Dispatch<SetStateAction<Device[]>>
     error: string | null
-    setError: Dispatch<SetStateAction<string | null>>
 }) {
-    useEffect(() => { // Run once, on page load. Calls API to get device list via fetch
-        void loadDevices( {setDevices, setError} )
-    }, [setDevices, setError]) // [] is dependency array. setDevices and setError inside because they arrive as props.
-                     // useEffect would then re-run if setDevices or setError state setters changed identity.
-
-    // If error after loading devices (setError was called at some point in loadDevices), render it.
-    if (error !== null) {
-        return <div>{error}</div>
-    }
-
-    // Map all devices in device rows.
+    // Map all devices in device rows, if no error. Otherwise return empty div with error.
     return (
+        error ? <div>{error}</div> :
         <div className="device-table">
             {devices.map((device) => (
                 <DeviceRow
@@ -273,6 +225,7 @@ function DeviceInfo({ device }: { device: Device }) {
 // DeviceButtons defines right-aligned set of buttons for a device row.
 function DeviceButtons() {
     return (
+        // In order: View Button, Edit Button, Delete Button
         <div className="device-buttons">
             <button className="device-button">
                 <svg

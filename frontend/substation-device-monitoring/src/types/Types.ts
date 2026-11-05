@@ -1,4 +1,7 @@
 // Types.tsx contains matching types from the Store backend.
+// Input types match the backend input types, allowing us to create JSON objects while guaranteeing the correct format.
+// Regular types are used for the opposite; decoding JSON sent from the backend into a type.
+
 export const DeviceType = {
   Relay: 'relay',
 } as const
