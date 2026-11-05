@@ -1,0 +1,60 @@
+
+.app-shell {
+    box-sizing: border-box;
+    min-height: 100svh;
+    margin-left: 8rem;
+    padding-top: 4rem;
+    overflow: auto;
+}
+
+.main-page {
+    box-sizing: border-box;
+    min-height: calc(100svh - 4rem);
+    padding: 3rem;
+}
+
+.device-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 1rem;
+    border: 1px solid #475569;
+}
+
+.device-table {
+    margin: 3rem;
+}
+
+.device-info {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.device-info__static {
+    min-width: 8rem;
+}
+
+.device-info__status {
+    min-width: 5rem;
+}
+
+.device-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.device-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
