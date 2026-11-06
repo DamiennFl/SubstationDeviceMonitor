@@ -31,7 +31,7 @@ function DeviceRules( {device }: {device: Device}) {
     }, [setRuleList, setRuleError])
     
         return (
-            <div className="main-page">
+            <div>
                 <RuleCreateButton setShowCreateRuleRow={setShowCreateRuleRow} />
                 <RuleRowHeader />
                 {showCreateRuleRow && ( // Conditionally render device creation row

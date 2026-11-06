@@ -110,7 +110,7 @@ function DeviceAlarms({device}: {device: Device}) {
         ? <div className="device-create-error">{alarmError}</div>
         : <div>Loading Alarms...</div>
     }
-    if (alarmList.length === 0) return <div>No alarms</div>
+    if (alarmList.length === 0) return <div><h1>No alarms</h1></div>
 
     return (
         <div>
