@@ -144,6 +144,8 @@ export type Acknowledgement = {
 }
 
 // Rule defines an alarm condition for a device measurement.
+// TODO: Refactor Rule into specific separate types just in frontend,
+// to make creation and updating easier, instead of needing to validate.
 export type Rule = {
   id: string
   deviceId: string

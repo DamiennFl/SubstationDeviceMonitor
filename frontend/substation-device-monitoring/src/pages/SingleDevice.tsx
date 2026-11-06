@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom"
 import { getDevice, getDeviceAlarms, getDeviceReadings } from "../api/single_device"
 import { useState, useEffect } from "react"
 import type { Device, RuleSnapshot, AlarmWithAcknowledgement, Reading } from "../types/Types"
+import DeviceRules from "../components/rules/Rules"
 import "./devices.css"
 
 // Page for a single device. The device ID comes from the URL (/devices/:deviceId).
@@ -40,7 +41,7 @@ function SingleDevice() {
         <div className="main-page">
             <DeviceHeader 
                 device={device} />
-            {/* <DeviceRules deviceId={deviceId} /> */}
+            <DeviceRules device={device} />
             <DeviceAlarms device={device} />
             <DeviceReadings device={device} />
         </div>
@@ -59,6 +60,9 @@ function DeviceHeader({device}: {device: Device}) {
         </div>
     )
 }
+
+
+
 
 // Describe a rule's limit depending on its type: threshold shows comparison + limit,
 // band shows the range, status shows the trip state.

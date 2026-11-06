@@ -17,7 +17,7 @@ curl -v -X POST http://localhost:8080/api/devices/{device_id}/rules \
     "deadband": 5
   }'
 
-  curl -v -X POST http://localhost:8080/api/devices/038c8fca-267d-4f08-8141-0d7d28000007/rules \
+  curl -v -X POST http://localhost:8080/api/devices/655da4eb-ceb6-4ebb-8598-058453d92c75/rules \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Overvoltage",

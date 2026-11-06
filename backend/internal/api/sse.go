@@ -45,7 +45,7 @@ func (s *Server) getEventsSSEHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Try and write SSE event metadata
-			if _, err := fmt.Fprintf(w, "id: %s\n device_id: %s\nevent: %s\n", event.EventID, event.DeviceID, event.EventType); err != nil {
+			if _, err := fmt.Fprintf(w, "id: %s\n deviceId: %s\nevent: %s\n", event.EventID, event.DeviceID, event.EventType); err != nil {
 				log.Printf("failed to write SSE event metadata: %v", err)
 				return
 			}
