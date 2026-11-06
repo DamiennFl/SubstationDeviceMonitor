@@ -8,6 +8,7 @@ export const EventType = {
 
 export type EventType = typeof EventType[keyof typeof EventType]
 
+// TODO: Consider renaming this, since React already holds an Event type.
 export type Event = {
     eventId: string
     deviceId: string

@@ -4,6 +4,7 @@ import HeaderBar from './HeaderBar'
 import SideBar from './SideBar'
 import Devices from '../../pages/Devices'
 import SingleDevice from '../../pages/SingleDevice'
+import LiveEvents from '../../pages/LiveEvents'
 
 // Main App component
 export function AppShell() {
@@ -27,6 +28,7 @@ export function AppShell() {
                     <Route path="/devices" element={<Devices />} />
                     {/* :deviceId is read in SingleDevice via useParams. */}
                     <Route path="/devices/:deviceId" element={<SingleDevice />} />
+                    <Route path="/events" element={<LiveEvents />} />
                 </Routes>
             </div>
         </BrowserRouter>

@@ -8,11 +8,11 @@ import (
 
 // Uniform event type
 type Event struct {
-	EventID        uuid.UUID
-	DeviceID       uuid.UUID
-	EventType      EventType
-	EventTimestamp time.Time
-	Data           string
+	EventID        uuid.UUID `json:"eventId"`
+	DeviceID       uuid.UUID `json:"deviceId"`
+	EventType      EventType `json:"eventType"`
+	EventTimestamp time.Time `json:"eventTimeStamp"`
+	Data           string    `json:"data"`
 }
 
 // Event types
