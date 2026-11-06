@@ -44,9 +44,14 @@ var DefaultReadingValues = model.Reading{
 
 // Main which loops and keeps the simulator running continuously
 func main() {
+	// Get env variable from Docker. If not present fall back to localhost.
+	API_BASE_URL := os.Getenv("API_BASE_URL")
+	if API_BASE_URL == "" {
+		API_BASE_URL = "http://localhost:8080"
+	}
 	sim := Simulator{
 		Devices:    make(map[uuid.UUID]model.Device),
-		APIBaseURL: "http://localhost:8080",
+		APIBaseURL: API_BASE_URL,
 		HTTPClient: http.Client{Timeout: 10 * time.Second},
 	}
 

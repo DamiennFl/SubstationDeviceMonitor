@@ -1,0 +1,5 @@
+bin
+cmd/api/api
+cmd/simulator/simulator
+.git
+**/*_test.go
