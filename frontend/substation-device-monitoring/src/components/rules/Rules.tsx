@@ -297,35 +297,6 @@ function RuleCreateRow({
         </div>
     )
 }
-
-// List of Devices in a table format
-function RulesList({
-    rules,
-    error,
-    onRuleUpdated,
-    onRuleDeleted,
-}: {
-    rules: Rule[]
-    error: string | null
-    onRuleUpdated: (rule: Rule) => void
-    onRuleDeleted: (ruleId: string) => void
-}) {
-    // Map all rules in rule rows, if no error. Otherwise return empty div with error.
-    return (
-        error ? <div>{error}</div> :
-        <div className="device-table">
-            {rules.map((rule) => (
-                <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    onUpdated={onRuleUpdated}
-                    onDeleted={onRuleDeleted}
-                />
-            ))}
-        </div>
-    )
-}
-
 // Represents one Rule
 function RuleRow({ 
     rule,
@@ -339,7 +310,7 @@ function RuleRow({
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(rule.name)
     const [enabled, setEnabled] = useState(rule.enabled)
-    const [ruleType, setRuleType] = useState<RuleType>(rule.type)
+    const [ruleType] = useState<RuleType>(rule.type)
     const [measurement, setMeasurement] = useState<Measurement>(rule.measurement)
     const [comparison, setComparison] = useState<Comparison | undefined>(rule.comparison)
     // Numeric inputs are kept as strings (matching the create row) and converted on validation/submit.
