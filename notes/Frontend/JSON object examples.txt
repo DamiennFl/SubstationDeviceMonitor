@@ -1,0 +1,85 @@
+{
+    "alarm":
+    {
+        "id":"de93f229-f69f-44a6-9d79-ac73bce4ba14",
+        "ruleId":"cedd7f0e-7ba2-4813-b9aa-d43b58ac5edb",
+        "deviceId":"038c8fca-267d-4f08-8141-0d7d28000007",
+        "raisedAt":"2026-11-05T21:17:13.561935547Z",
+        "clearedAt":"2026-11-05T21:17:17.560178418Z",
+        "clearReason":"normal",
+        "triggerValue":245,
+        "ruleSnapshot":
+        {
+            "name":"Overvoltage",
+            "type":"threshold",
+            "measurement":"voltageA",
+            "comparison":"GT",
+            "limit":240,
+            "deadband":5
+        }
+    }
+}
+
+// Reading Event
+2026-11-06T19:33:02.498095871Z 
+reading 
+{
+    "timestamp":"2026-11-06T19:33:02.498095871Z",
+    "currentA":10,
+    "currentB":11,
+    "currentC":12,
+    "voltageA":230,
+    "voltageB":231,
+    "voltageC":232,
+    "frequency":60,
+    "realPower":100,
+    "reactivePower":20,
+    "breakerStatus":"open"
+}
+
+// Alarm Cleared Event
+2026-11-06T19:32:59.498684688Z 
+alarmCleared 
+{
+    "id":"4783c919-7c9d-46b9-9a99-e40c10ca2531",
+    "ruleId":"6073e9de-c16d-4027-8297-1c4dcf2c42b7",
+    "deviceId":"5c37e1fb-8404-4362-b699-e37ce78c1bd3",
+    "raisedAt":"2026-11-06T19:32:58.498663723Z",
+    "clearedAt":"2026-11-06T19:32:59.498684688Z",
+    "clearReason":"normal",
+    "triggerValue":"closed",
+    "ruleSnapshot":
+    {
+        "name":"Relay Tripped",
+        "type":"status",
+        "measurement":"breakerStatus",
+        "comparison":"GT",
+        "limit":0,
+        "lowerLimit":0,
+        "upperLimit":0,
+        "deadband":0,
+        "tripState":"closed"
+    }
+}
+
+// Alarm Raised Event
+2026-11-06T19:32:58.498663723Z 
+alarmRaised {
+    "id":"4783c919-7c9d-46b9-9a99-e40c10ca2531",
+    "ruleId":"6073e9de-c16d-4027-8297-1c4dcf2c42b7",
+    "deviceId":"5c37e1fb-8404-4362-b699-e37ce78c1bd3",
+    "raisedAt":"2026-11-06T19:32:58.498663723Z",
+    "triggerValue":"closed",
+    "ruleSnapshot":
+    {
+        "name":"Relay Tripped",
+        "type":"status",
+        "measurement":"breakerStatus",
+        "comparison":"GT",
+        "limit":0,
+        "lowerLimit":0,
+        "upperLimit":0,
+        "deadband":0,
+        "tripState":"closed"
+    }
+}

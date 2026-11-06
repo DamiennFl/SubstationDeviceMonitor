@@ -37,7 +37,7 @@ Rules
 Readings
 | Type | Endpoint | Purpose | Success | Errors |
 | ---- | -------- | ------- | ------- | ------ |
-| POST | `/api/devices/{device_id}/readings` | Report latest reading, called by Simulator | 204 Success, simulator needs nothing back | 400 Bad Body, 404 Unknown ID |
+| POST | `/api/readings` | Report latest reading (body includes `deviceId`), called by Simulator | 204 Success, simulator needs nothing back | 400 Bad Body, 404 Unknown ID |
 | GET  | `/api/devices/{device_id}/readings?from=...&to=...` | Reports readings from x to y | 200 Success | 400 Bad Range, 404 Unknown ID |
 
 Alarms
