@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react"
-import { subToEventStream } from "../api/live_events"
 import { loadDevices } from "../api/devices"
 import { type Event, EventType } from "../types/EventTypes"
 import "./liveEvents.css"
@@ -36,9 +35,7 @@ function formatEventData(event: Event): string {
 }
 
 // Live Events Component for LiveEvents page
-function LiveEvents() {
-    // List of events
-    const [events, setEvents] = useState<Event[]>([])
+function LiveEvents({ events }: { events: Event[] }) {
     // Map of deviceId -> device name, so events show names instead of UUIDs.
     const [deviceNames, setDeviceNames] = useState<Record<string, string>>({})
 
@@ -52,18 +49,6 @@ function LiveEvents() {
             .catch(() => {
                 // Non-fatal: rows fall back to showing the raw device ID.
             })
-    }, [])
-
-    // Get event source at startup.
-    useEffect(() => {
-        // Get event source, callback updates events list by putting newest event up top.
-        // Events come from API in order.
-        const eventSource = subToEventStream((event) => {
-            setEvents(prev => [event, ...prev].slice(0, 200)) // Last 200 events, to prevent infinite memory growth
-        })
-
-        // Return cleanup function.
-        return () => eventSource.close()
     }, [])
 
     // Return simple table
