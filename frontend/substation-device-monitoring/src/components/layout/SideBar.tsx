@@ -23,11 +23,10 @@ type SideBarItem = {
 
 // List of sidebar buttons. Update this list as necessary to add or remove buttons.
 const sideBarItems: SideBarItem[] = [
-    {label: 'Dashboard', route: '/' },
     {label: 'Devices', route: '/devices' },
     //{label: 'Alarms', route: '/alarms'}, // TODO: Add an endpoint which gets alarms list. Does not exist.
     {label: 'Live Events', route: '/events'},
-    {label: 'Settings', route: '/settings'} // Does not actually exist, will be used for PAGE NOT FOUND learning
+    // {label: 'Settings', route: '/settings'} // Does not actually exist, will be used for PAGE NOT FOUND learning
 ]
 
 type SideBarButtonProps = {
