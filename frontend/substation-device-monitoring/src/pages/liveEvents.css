@@ -1,0 +1,22 @@
+.events-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.events-table th,
+.events-table td {
+    border: 1px solid #475569;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.events-table th {
+    font-weight: 700;
+    background: rgb(148 163 184 / 12%);
+}
+
+/* Readings are long lists of values, so let them wrap. */
+.events-table td.events-data {
+    word-break: break-word;
+}
