@@ -145,6 +145,7 @@ func TestPublishReadingResultEvents(t *testing.T) {
 	raisedAt := time.Date(2026, 11, 3, 20, 0, 0, 0, time.UTC)
 	clearedAt := raisedAt.Add(time.Minute)
 	reading := model.Reading{
+		DeviceID:      deviceID,
 		Timestamp:     raisedAt,
 		BreakerStatus: model.StateClosed,
 	}
@@ -162,7 +163,7 @@ func TestPublishReadingResultEvents(t *testing.T) {
 		return &reason
 	}()
 
-	if err := server.publishReadingResultEvents(deviceID, model.ReadingResult{
+	if err := server.publishReadingResultEvents(model.ReadingResult{
 		Reading: reading,
 		RuleEvaluationResult: model.RuleEvaluationResult{
 			RaisedAlarms:  []model.Alarm{raisedAlarm},

@@ -21,15 +21,6 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get deviceID from path string
-	deviceIDString := r.PathValue("device_id")
-	// Parse the UUID, return if it is invalid
-	deviceID, err := uuid.Parse(deviceIDString)
-	if err != nil {
-		http.Error(w, "Malformed request or missing parameters", http.StatusBadRequest)
-		return
-	}
-
 	var readingInput model.CreateReadingInput
 
 	// Make new decoder with a 1MB limit
@@ -50,7 +41,9 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if readingInput.Timestamp.IsZero() ||
+	// Device ID comes from the reading itself, since readings are posted to a shared endpoint.
+	if readingInput.DeviceID == uuid.Nil ||
+		readingInput.Timestamp.IsZero() ||
 		readingInput.CurrentA == nil ||
 		readingInput.CurrentB == nil ||
 		readingInput.CurrentC == nil ||
@@ -89,6 +82,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reading := model.Reading{
+		DeviceID:      readingInput.DeviceID,
 		Timestamp:     readingInput.Timestamp,
 		CurrentA:      *readingInput.CurrentA,
 		CurrentB:      *readingInput.CurrentB,
@@ -102,7 +96,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 		BreakerStatus: *readingInput.BreakerStatus,
 	}
 
-	readingResult, err := s.store.AddReading(r.Context(), deviceID, reading)
+	readingResult, err := s.store.AddReading(r.Context(), reading)
 
 	if err != nil {
 		switch {
@@ -122,7 +116,7 @@ func (s *Server) createReadingHandler(w http.ResponseWriter, r *http.Request) {
 	// Publish reading event. Comes after HTTP status set because
 	// failing a publish event does not fail the underlying store logic, which is
 	// more important.
-	if err := s.publishReadingResultEvents(deviceID, readingResult); err != nil {
+	if err := s.publishReadingResultEvents(readingResult); err != nil {
 		log.Printf("failed to publish reading events: %v", err)
 		return
 	}
@@ -192,7 +186,7 @@ func (s *Server) getReadingsListHandler(w http.ResponseWriter, r *http.Request) 
 
 // publishReadingResultEvents publishes the accepted reading first, followed by
 // alarms raised and cleared while evaluating the reading.
-func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult model.ReadingResult) error {
+func (s *Server) publishReadingResultEvents(readingResult model.ReadingResult) error {
 	// Call payload creation helper
 	readingPayload, err := createReadingPayload(readingResult.Reading)
 	if err != nil {
@@ -201,7 +195,7 @@ func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult mo
 	// Publish new reading event first through server's event broker.
 	if err := s.eventBroker.Publish(model.Event{
 		EventID:        uuid.New(),
-		DeviceID:       deviceID,
+		DeviceID:       readingResult.Reading.DeviceID,
 		EventType:      model.ReadingEvent,
 		EventTimestamp: readingResult.Reading.Timestamp,
 		Data:           readingPayload,

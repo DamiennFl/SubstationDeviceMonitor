@@ -186,7 +186,7 @@ func (s *Simulator) sendDeviceReading(deviceID uuid.UUID) {
 	// Create new POST request, to POST device's new Reading, simulating data being sent from device.
 	// Send POST request
 	response, err := s.HTTPClient.Post(
-		strings.TrimRight(s.APIBaseURL, "/")+"/api/devices/"+deviceID.String()+"/readings",
+		strings.TrimRight(s.APIBaseURL, "/")+"/api/readings",
 		"application/json",
 		bytes.NewReader(payload),
 	)
@@ -204,7 +204,7 @@ func (s *Simulator) sendDeviceReading(deviceID uuid.UUID) {
 
 // This one will be hooked up to the server and send via the below POST for each device:
 //
-//	mux.HandleFunc("POST /api/devices/{device_id}/readings", server.createReadingHandler) // Only for Simulator
+//	mux.HandleFunc("POST /api/readings", server.createReadingHandler) // Only for Simulator
 //
 // This function should just iterate over the list of devices and call sendDeviceReading for each.
 func (s *Simulator) SendReadings() {
@@ -286,6 +286,8 @@ func setMeasurement(reading *model.Reading, measurement model.Measurement, value
 func (s *Simulator) generateNominalReading(deviceID uuid.UUID) (model.Reading, error) {
 	// Start with base reading
 	reading := baseReading()
+	// Set Device ID
+	reading.DeviceID = deviceID
 	// Get list of rules
 	rules, err := s.getDeviceRules(deviceID)
 	// Getting rules failed, use backup defaults
@@ -337,6 +339,7 @@ func (s *Simulator) generateNominalReading(deviceID uuid.UUID) (model.Reading, e
 func (s *Simulator) generateTrippingReading(deviceID uuid.UUID) (model.Reading, error) {
 	// Start with base reading
 	reading := baseReading()
+	reading.DeviceID = deviceID
 	// Get device's rules.
 	rules, err := s.getDeviceRules(deviceID)
 	// If GET rules fails, then fall back to default values.

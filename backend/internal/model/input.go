@@ -4,6 +4,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Use Structs for Input. When the client sends JSON, it needs something to decode it into, which is these creation structs.
@@ -48,8 +50,9 @@ type UpdateRuleInput struct {
 	TripState   *State       `json:"tripState"`
 }
 
-// CreateReadingInput contains a reading submitted for the device in the URL path.
+// CreateReadingInput contains a reading submitted by a device, identified by DeviceID.
 type CreateReadingInput struct {
+	DeviceID      uuid.UUID `json:"deviceId"`
 	Timestamp     time.Time `json:"timestamp"`
 	CurrentA      *float64  `json:"currentA"`
 	CurrentB      *float64  `json:"currentB"`

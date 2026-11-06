@@ -785,12 +785,12 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 // AddReading adds a reading to the list of readings for a device and updates the latest reading for a device.
 // Also checks if any alarms should be raised or cleared, and returns all three in a return structure.
 // We return all of these so the createReadingHandler can create events and send them to the event broker.
-func (s *Store) AddReading(ctx context.Context, deviceID uuid.UUID, reading model.Reading) (model.ReadingResult, error) {
+func (s *Store) AddReading(ctx context.Context, reading model.Reading) (model.ReadingResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Get device
-	device, ok := s.devices[deviceID]
+	device, ok := s.devices[reading.DeviceID]
 
 	// If no device, error
 	if !ok {
@@ -803,7 +803,7 @@ func (s *Store) AddReading(ctx context.Context, deviceID uuid.UUID, reading mode
 	}
 
 	// Get readings list
-	readingsList, exists := s.readings[deviceID]
+	readingsList, exists := s.readings[reading.DeviceID]
 
 	// Init if doesn't exist
 	if !exists {
@@ -832,13 +832,13 @@ func (s *Store) AddReading(ctx context.Context, deviceID uuid.UUID, reading mode
 	device.LastSeen = &currentTime
 
 	// Update device ref
-	s.devices[deviceID] = device
+	s.devices[reading.DeviceID] = device
 
 	// Insert at front of list
 	readingsList = slices.Insert(readingsList, 0, reading)
 
 	// Update list ref
-	s.readings[deviceID] = readingsList
+	s.readings[reading.DeviceID] = readingsList
 
 	readingResult := model.ReadingResult{
 		Reading: reading,
@@ -850,7 +850,7 @@ func (s *Store) AddReading(ctx context.Context, deviceID uuid.UUID, reading mode
 
 	if isNewerReading {
 		// Pass in pointer to readingResult to update values in place
-		if err := s.evaluateRulesLocked(deviceID, &readingResult); err != nil {
+		if err := s.evaluateRulesLocked(reading.DeviceID, &readingResult); err != nil {
 			return model.ReadingResult{}, err
 		}
 	}

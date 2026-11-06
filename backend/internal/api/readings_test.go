@@ -20,7 +20,7 @@ func testReadingAPIStore(t *testing.T) (*store.Store, model.Device) {
 	return appStore, device
 }
 
-func testReadingInput(timestamp time.Time) model.CreateReadingInput {
+func testReadingInput(deviceID uuid.UUID, timestamp time.Time) model.CreateReadingInput {
 	currentA := 10.0
 	currentB := 11.0
 	currentC := 12.0
@@ -33,6 +33,7 @@ func testReadingInput(timestamp time.Time) model.CreateReadingInput {
 	breakerStatus := model.StateClosed
 
 	return model.CreateReadingInput{
+		DeviceID:      deviceID,
 		Timestamp:     timestamp,
 		CurrentA:      &currentA,
 		CurrentB:      &currentB,
@@ -47,10 +48,8 @@ func testReadingInput(timestamp time.Time) model.CreateReadingInput {
 	}
 }
 
-func jsonReadingCreateRequest(method, deviceID string, body any) *http.Request {
-	request := jsonRequest(method, "/api/devices/"+deviceID+"/readings", body)
-	request.SetPathValue("device_id", deviceID)
-	return request
+func jsonReadingCreateRequest(method string, body any) *http.Request {
+	return jsonRequest(method, "/api/readings", body)
 }
 
 func getReadingsRequest(method, deviceID string, from, to time.Time) *http.Request {
@@ -61,8 +60,9 @@ func getReadingsRequest(method, deviceID string, from, to time.Time) *http.Reque
 	return request
 }
 
-func testReading(timestamp time.Time, currentA float64) model.Reading {
+func testReading(deviceID uuid.UUID, timestamp time.Time, currentA float64) model.Reading {
 	return model.Reading{
+		DeviceID:      deviceID,
 		Timestamp:     timestamp,
 		CurrentA:      currentA,
 		CurrentB:      11,
@@ -85,8 +85,7 @@ func TestCreateReadingHandler(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		device.ID.String(),
-		testReadingInput(timestamp),
+		testReadingInput(device.ID, timestamp),
 	)
 
 	server.createReadingHandler(response, request)
@@ -100,7 +99,7 @@ func TestCreateReadingHandler(t *testing.T) {
 func TestCreateReadingHandlerDuplicate(t *testing.T) {
 	appStore, device := testReadingAPIStore(t)
 	timestamp := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
-	if _, err := appStore.AddReading(t.Context(), device.ID, testReading(timestamp, 10)); err != nil {
+	if _, err := appStore.AddReading(t.Context(), testReading(device.ID, timestamp, 10)); err != nil {
 		t.Fatalf("AddReading() error = %v", err)
 	}
 
@@ -108,8 +107,7 @@ func TestCreateReadingHandlerDuplicate(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		device.ID.String(),
-		testReadingInput(timestamp),
+		testReadingInput(device.ID, timestamp),
 	)
 
 	server.createReadingHandler(response, request)
@@ -125,8 +123,8 @@ func TestCreateReadingHandlerMissingField(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		uuid.New().String(),
 		map[string]any{
+			"deviceId":      uuid.New().String(),
 			"timestamp":     "2026-11-02T20:00:00Z",
 			"currentA":      10,
 			"currentB":      11,
@@ -153,8 +151,8 @@ func TestCreateReadingHandlerInvalidState(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		uuid.New().String(),
 		map[string]any{
+			"deviceId":      uuid.New().String(),
 			"timestamp":     "2026-11-02T20:00:00Z",
 			"currentA":      10,
 			"currentB":      11,
@@ -182,8 +180,7 @@ func TestCreateReadingHandlerUnknownDevice(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		uuid.New().String(),
-		testReadingInput(time.Now().UTC()),
+		testReadingInput(uuid.New(), time.Now().UTC()),
 	)
 
 	server.createReadingHandler(response, request)
@@ -202,8 +199,7 @@ func TestCreateReadingHandlerMalformedID(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodPost,
-		"not-a-uuid",
-		testReadingInput(time.Now().UTC()),
+		map[string]any{"deviceId": "not-a-uuid", "timestamp": "2026-11-02T20:00:00Z"},
 	)
 
 	server.createReadingHandler(response, request)
@@ -219,8 +215,7 @@ func TestCreateReadingHandlerWrongMethod(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := jsonReadingCreateRequest(
 		http.MethodGet,
-		uuid.New().String(),
-		testReadingInput(time.Now().UTC()),
+		testReadingInput(uuid.New(), time.Now().UTC()),
 	)
 
 	server.createReadingHandler(response, request)
@@ -234,10 +229,10 @@ func TestCreateReadingHandlerWrongMethod(t *testing.T) {
 func TestGetReadingsListHandler(t *testing.T) {
 	appStore, device := testReadingAPIStore(t)
 	from := time.Date(2026, 11, 2, 20, 0, 0, 0, time.UTC)
-	inRange := testReading(from.Add(time.Minute), 20)
-	outOfRange := testReading(from.Add(2*time.Hour), 30)
+	inRange := testReading(device.ID, from.Add(time.Minute), 20)
+	outOfRange := testReading(device.ID, from.Add(2*time.Hour), 30)
 	for _, reading := range []model.Reading{inRange, outOfRange} {
-		if _, err := appStore.AddReading(t.Context(), device.ID, reading); err != nil {
+		if _, err := appStore.AddReading(t.Context(), reading); err != nil {
 			t.Fatalf("AddReading() error = %v", err)
 		}
 	}
@@ -354,5 +349,21 @@ func TestGetReadingsListHandlerWrongMethod(t *testing.T) {
 
 	if response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusMethodNotAllowed)
+	}
+}
+
+// Invalid case: createReadingHandler rejects a reading without a device ID.
+func TestCreateReadingHandlerMissingDeviceID(t *testing.T) {
+	server := NewServer(store.NewStore())
+	response := httptest.NewRecorder()
+	request := jsonReadingCreateRequest(
+		http.MethodPost,
+		testReadingInput(uuid.Nil, time.Now().UTC()),
+	)
+
+	server.createReadingHandler(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
 	}
 }
