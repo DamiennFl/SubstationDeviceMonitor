@@ -111,7 +111,7 @@ func (s *Server) publishAcknowledgeAlarmEvent(alarmWithAck model.AlarmWithAcknow
 		DeviceID:       alarmWithAck.Alarm.DeviceID,
 		EventType:      model.AlarmAckedEvent,
 		EventTimestamp: alarmWithAck.Acknowledgement.AcknowledgedAt,
-		Payload:        acknowledgementPayload,
+		Data:           acknowledgementPayload,
 	}); err != nil {
 		return err
 	}

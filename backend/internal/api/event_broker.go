@@ -100,7 +100,7 @@ func (e *EventBroker) Publish(event model.Event) error {
 		return ErrInvalidEventType
 	}
 
-	if len(event.Payload) == 0 {
+	if len(event.Data) == 0 {
 		return ErrEmptyEventPayload
 	}
 
@@ -148,4 +148,5 @@ func (e *EventBroker) unsubscribeLockAware(subID uuid.UUID) error {
 
 // Design notes:
 // Handlers should publish in deterministic order. First reading, then alarm raised, then alarm cleared.
-// The reading should always be first in the list of live events.
+// The reading should always be first in the list of live events, stack wise. Meaning it will appear under
+// its raised alarms.

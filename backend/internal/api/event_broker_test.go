@@ -17,7 +17,7 @@ func testEvent() model.Event {
 		DeviceID:       uuid.New(),
 		EventType:      model.ReadingEvent,
 		EventTimestamp: time.Date(2026, 11, 3, 20, 0, 0, 0, time.UTC),
-		Payload:        `{"value":10}`,
+		Data:           `{"value":10}`,
 	}
 }
 
@@ -118,7 +118,7 @@ func TestEventBrokerRejectsInvalidEvents(t *testing.T) {
 		},
 		{
 			name: "empty payload",
-			edit: func(event *model.Event) { event.Payload = "" },
+			edit: func(event *model.Event) { event.Data = "" },
 			want: ErrEmptyEventPayload,
 		},
 	}
@@ -186,7 +186,7 @@ func TestPublishReadingResultEvents(t *testing.T) {
 			if event.DeviceID != deviceID {
 				t.Fatalf("event device ID = %v, want %v", event.DeviceID, deviceID)
 			}
-			if event.Payload == "" {
+			if event.Data == "" {
 				t.Fatal("event payload is empty")
 			}
 		case <-time.After(time.Second):

@@ -51,7 +51,7 @@ func (s *Server) getEventsSSEHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Split payload into separate lines, and try to print.
-			for _, line := range strings.Split(event.Payload, "\n") {
+			for _, line := range strings.Split(event.Data, "\n") {
 				// Error if printing any line failes
 				if _, err := fmt.Fprintf(w, "data: %s\n", line); err != nil {
 					log.Printf("failed to write SSE event data: %v", err)

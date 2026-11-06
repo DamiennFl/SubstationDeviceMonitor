@@ -12,7 +12,7 @@ type Event struct {
 	DeviceID       uuid.UUID
 	EventType      EventType
 	EventTimestamp time.Time
-	Payload        string
+	Data           string
 }
 
 // Event types

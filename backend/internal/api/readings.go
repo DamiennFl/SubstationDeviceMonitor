@@ -204,7 +204,7 @@ func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult mo
 		DeviceID:       deviceID,
 		EventType:      model.ReadingEvent,
 		EventTimestamp: readingResult.Reading.Timestamp,
-		Payload:        readingPayload,
+		Data:           readingPayload,
 	}); err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult mo
 			DeviceID:       alarm.DeviceID,
 			EventType:      model.AlarmRaisedEvent,
 			EventTimestamp: alarm.RaisedAt,
-			Payload:        alarmPayload,
+			Data:           alarmPayload,
 		}); err != nil {
 			return err
 		}
@@ -240,7 +240,7 @@ func (s *Server) publishReadingResultEvents(deviceID uuid.UUID, readingResult mo
 			DeviceID:       alarm.DeviceID,
 			EventType:      model.AlarmClearedEvent,
 			EventTimestamp: *alarm.ClearedAt,
-			Payload:        alarmPayload,
+			Data:           alarmPayload,
 		}); err != nil {
 			return err
 		}
