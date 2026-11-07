@@ -10,7 +10,7 @@ server {
     }
 
     location /api {
-        proxy_pass http://${API_HOST}:${API_PORT};
+        proxy_pass http://${API_HOST}:${API_UPSTREAM_PORT};
         proxy_set_header Connection "";
         proxy_set_header X-Real-IP $remote_addr;
         proxy_buffering off;
