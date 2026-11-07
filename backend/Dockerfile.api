@@ -2,33 +2,43 @@
 # BUILD STAGE
 ###
 
+# Get golang image
 FROM golang:1.27.3-alpine AS builder
 
+# Define work directory
 WORKDIR /api
 
+# Copy go.mod and go.sum for deps and dep checksums
 COPY go.mod go.sum ./
 
+# Download deps
 RUN go mod download
 
+# Copy directory code
 COPY . .
 
+# Disable native C binaries from being used
 ENV CGO_ENABLED=0
 
+# Build cmd/api api binary
 RUN go build -o main ./cmd/api
 
 ###
 # RUN STAGE
 ###
 
+# Use alpine image for running
 FROM alpine:3.24.4
 
+# Define user and group as non-root for security
 RUN addgroup -g 10002 apigroup && \
         adduser -u 10002 -G apigroup -h /home/apiuser -D apiuser
 
-WORKDIR /api
-
+# Get binary from builder
 COPY --from=builder --chown=apiuser:apigroup ./api/main .
 
+# Use user
 USER apiuser
 
+# Call main to run API
 CMD ["./main"]
