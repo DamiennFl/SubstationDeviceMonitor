@@ -1,0 +1,52 @@
+apiVersion: apps/v1 # Deployments live in apps/v1 API group
+kind: Deployment # Deployment config
+metadata:
+  name: api-deployment # Name deployment
+  labels:
+    app: backend-api # Set an app label
+
+spec:
+  replicas: 1 # One replica since data Store is local, not DB
+  selector:
+    matchLabels:
+      app: backend-api # App is still backend-api
+
+  template:
+    metadata:
+      labels:
+        app: backend-api # App is backend-api
+
+    spec:
+      securityContext: # Define security Context. Use API user and group we created for container in dockerfile.
+        runAsNonRoot: true
+        runAsUser: 10002
+        fsGroup: 10002
+
+      containers: # Define container
+        - name: api-container # Name it
+          image: damienflutre/sdm-api:v1 # Get the image we loaded using kind load-image
+          ports:
+            - containerPort: 8080 # Documents port API listens on
+          readinessProbe: # Define a readiness probe. The /ready handler is defined in backend/internal/api/server.go
+            httpGet: 
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5 # Wait 5 seconds after API is started
+            periodSeconds: 10 # Send every 10 seconds
+            timeoutSeconds: 2 # Timeout after 2 seconds
+            failureThreshold: 3 # If fails 3 times, pod is removed from Service endpoint.
+            successThreshold: 1 # Only needs to succeed once
+
+---
+
+apiVersion: v1
+kind: Service # Service config
+metadata:
+  name: api # Has to match frontend API_HOST variable in frontend, and API_BASE_URL host in simulator for request routing
+spec:
+  type: ClusterIP # Internal cluster routing
+  ports:
+    - port: 8080        # Port exposed by service
+      targetPort: 8080  # Port that API container is listening on
+  selector:
+    app: backend-api    # Connects service to deployment pods

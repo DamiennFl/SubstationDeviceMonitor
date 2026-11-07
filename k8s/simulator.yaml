@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment # Deployment config
+metadata:
+  name: sim-deployment # Name it
+  labels:
+    app: backend-simulator # Define app label
+
+spec:
+  replicas: 1 # One replica since API contains static store, no DB
+  selector:
+    matchLabels:
+      app: backend-simulator # Match label
+  
+  template:
+    metadata:
+      labels:
+        app: backend-simulator # Match label
+    
+    spec:
+      securityContext: # Use non-root user created in Dockerfile.simulator
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+
+      containers: # Define container
+        - name: sim-container
+          image: damienflutre/sdm-sim:v1 # Get image we added via kind load-image
+  
+# No service because Simulator is a client; does not expect any explicit inbound requests, only responses

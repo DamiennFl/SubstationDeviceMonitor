@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment # Deployment config
+metadata:
+  name: frontend-deployment # Name it
+  labels:
+    app: sdm-frontend # Apply app label
+
+spec:
+  replicas: 1 # One replica for local demo.
+  selector:
+    matchLabels:
+      app: sdm-frontend # Match label
+
+  template:
+    metadata:
+      labels:
+        app: sdm-frontend # Apply label
+  
+    spec:
+      containers: # Define container
+        - name: frontend-container
+          image: damienflutre/sdm-frontend:v1 # Get image we loaded via kind load-image
+          ports: 
+            - containerPort: 8080 # Set container port to 8080. Frontend pod is a web server; it expects requests.
+
+---
+
+apiVersion: v1
+kind: Service # Service config
+metadata:
+  name: frontend-service # Name service
+
+spec:
+  type: ClusterIP # Gives stable internal IP and DNS name in front of pods
+  ports:
+    - port: 3000 # Allow incoming on port 3000
+      targetPort: 8080 # Route to 8080
+  selector:
+    app: sdm-frontend

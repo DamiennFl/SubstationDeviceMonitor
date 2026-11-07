@@ -27,3 +27,9 @@ curl -v -X POST http://localhost:8080/api/devices/{device_id}/rules \
     "limit": 240,
     "deadband": 5
   }'
+
+Define a FROM and TO, then get readings for a device
+
+FROM=$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+TO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+curl "http://localhost:8080/api/devices/<device_id>/readings?from=$FROM&to=$TO"

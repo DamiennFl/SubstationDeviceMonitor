@@ -38,3 +38,36 @@ Docker images stay the same, cluster replaces Compose as the thing that runs the
 kind cluster (local) -> Deployment: api <- Service "api"
                      -> Deployment: simulator
                      -> Deployment: frontend <- Service (external)
+
+#### API Deployment and Service
+
+Service is deployed. General flow is as so:
+
+Kubernetes maintains 1 replica (pod) that runs a container created from the docker image of the API. The docker image comes from building the image from the dockerfile. Docker image is an immutable read-only template that contains stuff like source code, runtime, system libraries, deps, and configs for the whole application. Think of it like the image describes how the container should be configured and ran, the pod takes that information and builds the container.
+```
+docker build -t damienflutre/sdm-api:v1 -f Dockerfile.api .  // From inside backend/
+
+kind load docker-image damienflutre/sdm-api:v1
+
+kubectl apply -f k8s/api.yaml // Starts a pod via api.yaml config file
+```
+
+#### Simulator Deployment
+No service for simulator, because it is a client. It does not need an ingest port because it is not
+listening.
+```
+docker build -t damienflutre/sdm-sim:v1 -f Dockerfile.simulator . // From inside backend/
+
+kind load docker-image damienflutre/sdm-sim:v1
+
+kubectl apply -f k8s/simulator.yaml
+```
+
+#### Frontend Deployment and Service
+```
+docker build -t damienflutre/sdm-frontend:v1 -f Dockerfile .  // From inside frontend/substation-device-monitoring
+
+kind load docker-image damienflutre/sdm-frontend:v1
+
+kubectl apply -f k8s/simulator.yaml
+```
