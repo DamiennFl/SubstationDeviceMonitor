@@ -25,8 +25,16 @@ spec:
       containers: # Define container
         - name: api-container # Name it
           image: damienflutre/sdm-api:v1 # Get the image we loaded using kind load-image
+          resources:
+            requests:
+              cpu: "250m"      # Guaranteed minimum 0.25 CPU cores
+              memory: "256Mi"  # Guaranteed minimum 256 Mebibytes
+            limits:
+              cpu: "500m"      # Maximum allowed CPU (will throttle if exceeded)
+              memory: "512Mi"  # Hard memory cap (will OOM-kill if exceeded)
           ports:
             - containerPort: 8080 # Documents port API listens on
+
           readinessProbe: # Define a readiness probe. The /ready handler is defined in backend/internal/api/server.go
             httpGet: 
               path: /ready
@@ -36,6 +44,16 @@ spec:
             timeoutSeconds: 2 # Timeout after 2 seconds
             failureThreshold: 3 # If fails 3 times, pod is removed from Service endpoint.
             successThreshold: 1 # Only needs to succeed once
+
+          livenessProbe: # Define liveness probe
+            httpGet:
+              path: /live
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
 
 ---
 

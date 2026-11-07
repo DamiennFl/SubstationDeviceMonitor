@@ -32,14 +32,3 @@ COPY --from=builder /frontend/dist/ /usr/share/nginx/html
 
 # Add Nginx config file
 COPY default.conf.template /etc/nginx/templates/
-
-# Define env variables defined in default.conf.template.
-# Port which nginx accepts on
-ENV NGINX_PORT=8080
-# API host URL (http://api for local)
-ENV API_HOST=api
-# Port which nginx reads
-ENV API_UPSTREAM_PORT=8080
-# Set proxy read timeout to large value to prevent live events stalling
-# This would be solved if the event broker sent a heartbeat message.
-ENV PROXY_READ_TIMEOUT=6000s

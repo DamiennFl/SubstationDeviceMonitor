@@ -45,8 +45,5 @@ COPY --from=builder --chown=simuser:simgroup /sim/main .
 # Set simuser: non-root user.
 USER simuser
 
-# Define API base URL for simulator to send GET and POST requests to.
-ENV API_BASE_URL=http://api:8080
-
 # Run "./main", which will start the simulator.
 CMD ["./main"]

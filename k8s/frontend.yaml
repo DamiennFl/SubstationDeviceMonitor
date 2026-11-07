@@ -15,13 +15,31 @@ spec:
     metadata:
       labels:
         app: sdm-frontend # Apply label
-  
+
     spec:
       containers: # Define container
         - name: frontend-container
           image: damienflutre/sdm-frontend:v1 # Get image we loaded via kind load-image
+          
+          resources:
+            requests:
+              cpu: "250m"      # Guaranteed minimum 0.25 CPU cores
+              memory: "256Mi"  # Guaranteed minimum 256 Mebibytes
+            limits:
+              cpu: "500m"      # Maximum allowed CPU (will throttle if exceeded)
+              memory: "512Mi"  # Hard memory cap (will OOM-kill if exceeded)
+          
           ports: 
             - containerPort: 8080 # Set container port to 8080. Frontend pod is a web server; it expects requests.
+          
+          env: # Define environment variables. Moved from Dockerfile.
+            - name: NGINX_PORT
+              value: "8080"
+            - name: API_HOST
+              value: "api"
+            - name: API_UPSTREAM_PORT
+              value: "8080"
+            - name: PROXY_READ_
 
 ---
 
