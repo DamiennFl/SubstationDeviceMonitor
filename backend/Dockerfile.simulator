@@ -15,14 +15,14 @@ COPY go.mod go.sum ./
 # Run download to get dependencies
 RUN go mod download
 
-# Copy source (simulator.go)
+# Copy all source
 COPY . .
 
 # Tells alpine to make statically linked binary with no deps
 # CGo disables the use of native C libraries.
 ENV CGO_ENABLED=0
 
-# Build binary. 
+# Build binary.
 RUN go build -o main ./cmd/simulator 
 
 ###
