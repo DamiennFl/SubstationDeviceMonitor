@@ -171,10 +171,10 @@ func (s *Simulator) sendDeviceReading(deviceID uuid.UUID) {
 	var reading model.Reading
 	var err error
 	// Generate reading, either within or out of rule bounds.
-	if rand.Intn(2) == 0 {
-		reading, err = s.generateNominalReading(deviceID)
-	} else {
+	if rand.Intn(10) == (0 | 1) {
 		reading, err = s.generateTrippingReading(deviceID)
+	} else {
+		reading, err = s.generateNominalReading(deviceID)
 	}
 	if err != nil {
 		log.Printf("cannot generate reading for device %s: %v", deviceID, err)

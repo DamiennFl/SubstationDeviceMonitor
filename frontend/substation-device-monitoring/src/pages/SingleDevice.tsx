@@ -98,7 +98,7 @@ function DeviceAlarms({device}: {device: Device}) {
         }
 
         void loadDeviceAlarms()
-        const intervalId = setInterval(() => loadDeviceAlarms(), 5000) // Pass function which calls loadDeviceAlarms()
+        const intervalId = setInterval(() => loadDeviceAlarms(), 1000) // Pass function which calls loadDeviceAlarms()
 
         return () => { 
             cancelled = true

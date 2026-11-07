@@ -611,28 +611,28 @@ function RuleInfo({ rule }: { rule: Rule }) {
         <div className="device-info__static">
             {String(rule.enabled)}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.type}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.tripState}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.measurement}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.comparison}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.limit}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.upperLimit}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.lowerLimit}
         </div>
-        <div className="device-info__status">
+        <div className="device-info__static">
             {rule.deadband}
         </div>
     </div>
