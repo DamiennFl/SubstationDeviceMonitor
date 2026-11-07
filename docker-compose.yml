@@ -1,0 +1,23 @@
+# Define each container as service
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api # API dockerfile
+
+  simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.simulator # Simulator dockerfile
+    depends_on:
+      - api # Depends on the API since it will try to sync with the Store on startup via GET
+    restart: on-failure # Exits if its first sync beats the API's startup
+
+  frontend:
+    build:
+      context: ./frontend/substation-device-monitoring
+      dockerfile: Dockerfile # Frontend dockerfile
+    ports:
+      - '3000:8080' # App will be accessible on localhost:3000, route traffic to 8080 in network, which nginx is listening to
+    depends_on:
+      - api # frontend fails if it cannot connect to API (nginx cannot find upstream, throws error)
