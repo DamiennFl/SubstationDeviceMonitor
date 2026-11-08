@@ -42,7 +42,7 @@ Postgres DB Setup Commands
 ```
 // Define goose commands in terminal to test DB
 export GOOSE_DRIVER=postgres
-export GOOSE_DBSTRING="postgres://postgres:password@localhost:5432/dev_db?sslmode=disable"
+export GOOSE_DBSTRING="postgres://${POSTGRES_DB_USER}:${POSTGRES_DB_PASSWORD}@localhost:5432/dev_db?sslmode=disable"
 export GOOSE_MIGRATION_DIR=backend/migrations
 
 goose status
@@ -51,7 +51,7 @@ goose down
 goose reset
 
 // Open SQL Shell in container
-docker exec -it local-postgres psql -U postgres -d sdm
+docker exec -it local-postgres psql -U postgres -d dev_db
 ```
 
 ### Postgres SQL Shell Commands

@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile.api # API dockerfile
 
   simulator:
+    environment:
+      - API_BASE_URL=http://api:8080
     build:
       context: ./backend
       dockerfile: Dockerfile.simulator # Simulator dockerfile
@@ -14,6 +16,11 @@ services:
     restart: on-failure # Exits if its first sync beats the API's startup
 
   frontend:
+    environment:
+      - NGINX_PORT=8080
+      - API_HOST=api
+      - API_UPSTREAM_PORT=8080
+      - PROXY_READ_TIMEOUT=6000s
     build:
       context: ./frontend/substation-device-monitoring
       dockerfile: Dockerfile # Frontend dockerfile
