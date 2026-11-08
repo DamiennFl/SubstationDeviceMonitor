@@ -276,9 +276,9 @@ func (s *Server) listDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	// GetDevice through the deviceService
 	deviceList, err := s.store.ListDevices(r.Context())
 
-	// Does nothing for now: Will be useful when Postgres is implemented
 	if err != nil {
 		http.Error(w, "Unexpected internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	// Set return header to JSON content-type

@@ -782,6 +782,51 @@ func (s *Store) clearActiveAlarm(deviceID uuid.UUID, ruleID uuid.UUID, clearedTi
 // Reading Functions
 //----------------------------------------------------------------------------------
 
+func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time.Time, end time.Time) ([]model.Reading, error) {
+	// TIME VALIDATION WILL BE IN API
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Get device
+	device, ok := s.devices[deviceID]
+
+	// If no device, error
+	if !ok {
+		return []model.Reading{}, ErrDeviceNotFound
+	}
+
+	// If device is soft-deleted, error
+	if device.DeletedAt != nil {
+		return []model.Reading{}, ErrDeviceNotFound
+	}
+
+	// Get readings list
+	readingsList, exists := s.readings[deviceID]
+
+	// No list, return empty with no error
+	if !exists {
+		return []model.Reading{}, nil
+	}
+
+	// Make return list
+	returnReadingsList := make([]model.Reading, 0)
+
+	// Populate return list
+	for _, reading := range readingsList {
+		if !reading.Timestamp.Before(start) && !reading.Timestamp.After(end) {
+			returnReadingsList = slices.Insert(returnReadingsList, 0, reading) // Insert newer first since list is approximately sorted.
+		}
+	}
+
+	// Sort in case of readings added in wrong order
+	sort.Slice(returnReadingsList, func(i, j int) bool {
+		return returnReadingsList[i].Timestamp.After(returnReadingsList[j].Timestamp)
+	})
+
+	// Return
+	return returnReadingsList, nil
+}
+
 // AddReading adds a reading to the list of readings for a device and updates the latest reading for a device.
 // Also checks if any alarms should be raised or cleared, and returns all three in a return structure.
 // We return all of these so the createReadingHandler can create events and send them to the event broker.
@@ -1020,49 +1065,4 @@ func ruleSnapshot(rule model.Rule) model.RuleSnapshot {
 		Deadband:    rule.Deadband,
 		TripState:   rule.TripState,
 	}
-}
-
-func (s *Store) ListReadings(ctx context.Context, deviceID uuid.UUID, start time.Time, end time.Time) ([]model.Reading, error) {
-	// TIME VALIDATION WILL BE IN API
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	// Get device
-	device, ok := s.devices[deviceID]
-
-	// If no device, error
-	if !ok {
-		return []model.Reading{}, ErrDeviceNotFound
-	}
-
-	// If device is soft-deleted, error
-	if device.DeletedAt != nil {
-		return []model.Reading{}, ErrDeviceNotFound
-	}
-
-	// Get readings list
-	readingsList, exists := s.readings[deviceID]
-
-	// No list, return empty with no error
-	if !exists {
-		return []model.Reading{}, nil
-	}
-
-	// Make return list
-	returnReadingsList := make([]model.Reading, 0)
-
-	// Populate return list
-	for _, reading := range readingsList {
-		if !reading.Timestamp.Before(start) && !reading.Timestamp.After(end) {
-			returnReadingsList = slices.Insert(returnReadingsList, 0, reading) // Insert newer first since list is approximately sorted.
-		}
-	}
-
-	// Sort in case of readings added in wrong order
-	sort.Slice(returnReadingsList, func(i, j int) bool {
-		return returnReadingsList[i].Timestamp.After(returnReadingsList[j].Timestamp)
-	})
-
-	// Return
-	return returnReadingsList, nil
 }

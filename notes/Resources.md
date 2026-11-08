@@ -6,3 +6,6 @@ https://threedots.tech/post/live-website-updates-go-sse-htmx/
 
 Kubernetes examples
 https://oneuptime.com/blog/post/2026-01-19-kubernetes-pod-security-contexts/view
+
+Postgres + Go with `pgx` package
+https://betterstack.com/community/guides/scaling-go/postgresql-pgx-golang/

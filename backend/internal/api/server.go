@@ -2,8 +2,6 @@ package api
 
 import (
 	"net/http"
-
-	"github.com/DamiennFl/SubstationDeviceMonitor/backend/internal/store"
 )
 
 // Limit request body to 1 MB
@@ -11,14 +9,14 @@ const maxBodySize = 1024 * 1024
 
 // Define Server with services
 type Server struct {
-	store       *store.Store
+	store       DataStore
 	eventBroker *EventBroker
 }
 
 // Server constructor
-func NewServer(store *store.Store) *Server {
+func NewServer(storage DataStore) *Server {
 	return &Server{
-		store:       store,
+		store:       storage,
 		eventBroker: NewEventBroker(),
 	}
 }
