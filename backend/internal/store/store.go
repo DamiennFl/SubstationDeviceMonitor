@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// TODO: Pull these out into own file. This paired with making custom error structs
 var (
 	ErrDeviceNotFound       = errors.New("device not found")
 	ErrDuplicateDevice      = errors.New("device name or IP already exists")

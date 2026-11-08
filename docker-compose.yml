@@ -4,7 +4,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.api # API dockerfile
-
   simulator:
     environment:
       - API_BASE_URL=http://api:8080
