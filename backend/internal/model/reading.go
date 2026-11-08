@@ -6,6 +6,9 @@ import (
 	"github.com/google/uuid"
 )
 
+// In the future this could be refactored to be RelayReading with a wrapper Reading struct for
+// other device types which may send different data.
+
 // Reading contains a device measurement.
 type Reading struct {
 	DeviceID      uuid.UUID `json:"deviceId"`
