@@ -9,3 +9,5 @@ https://oneuptime.com/blog/post/2026-01-19-kubernetes-pod-security-contexts/view
 
 Postgres + Go with `pgx` package
 https://betterstack.com/community/guides/scaling-go/postgresql-pgx-golang/
+https://pkg.go.dev/github.com/jackc/pgx/v5@v5.12.0#Conn.QueryRow
+

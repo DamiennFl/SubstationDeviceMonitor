@@ -96,7 +96,7 @@ CREATE TABLE readings (
     reactive_power  DOUBLE PRECISION NOT NULL,
     breaker_status  TEXT NOT NULL,
 
-    PRIMARY KEY (device_id, timestamp),
+    PRIMARY KEY (device_id, timestamp), -- Primary key is device_id and timestamp. Rejects dup readings.
     CHECK (breaker_status IN ('open', 'closed'))
 );
 

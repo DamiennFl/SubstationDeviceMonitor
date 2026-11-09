@@ -35,6 +35,7 @@ Improvements
  - Event Broker was implemented but is only used by Live Events tab, streaming all events. It would be more efficient for a larger scale production to also use it for single device alarms and readings, instead of polling.
  - Use JSON schema for defining JSON. Adds an extra step of validation
  - Use `tygo` package to create typescript types from Go, instead of manually redefining them
+ - Add button in frontend settings which will clear DB of history, hard-deleting previously soft-deleted items. Maybe just make it a clear history button
 
 Other
  - Tests follow Assemble-Act-Assert unit testing format. Each function has 3 tests: regular case, edge case, invalid case. In a real production environment there would be more, such as testing a failing input for each individually. Tests generally follow this format: Create something, run the function on it, then validate errors (or lack thereof), and validate values if necessary. Some could be improved or expanded upon, e.g. tests which call functions that return JSON. Right now the JSON is not validated in the tests.
