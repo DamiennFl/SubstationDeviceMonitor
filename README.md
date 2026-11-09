@@ -1,5 +1,13 @@
 ### Docker Run
-To run, simply clone the repo and run `docker compose up`. It will be available at http://localhost:3000.
+To run, clone the repo.
+
+Optionally define 
+
+- POSTGRES_USER=
+- POSTGRES_PASSWORD=
+- POSTGRES_DB=
+
+in a `.env` file. and run `docker compose up`. It will be available at http://localhost:3000.
 
 ### Kubernetes Run
 
