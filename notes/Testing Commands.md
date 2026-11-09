@@ -52,6 +52,7 @@ goose reset
 
 // Open SQL Shell in container
 docker exec -it local-postgres psql -U postgres -d dev_db
+docker exec -it substationdevicemonitor-db-1 psql -U postgres -d sdm_db
 ```
 
 ### Postgres SQL Shell Commands
