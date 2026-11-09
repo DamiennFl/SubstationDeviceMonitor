@@ -23,8 +23,9 @@ import (
 
 type Simulator struct {
 	Devices    map[uuid.UUID]model.Device
-	APIBaseURL string      // Simulator needs an API to GET and POST to
-	HTTPClient http.Client // Simulator needs an HTTP client to send requests
+	Rules      map[uuid.UUID][]model.Rule // Cached rules per device, refreshed by the sync loop
+	APIBaseURL string                     // Simulator needs an API to GET and POST to
+	HTTPClient http.Client                // Simulator needs an HTTP client to send requests
 	mu         sync.RWMutex
 }
 
@@ -51,6 +52,7 @@ func main() {
 	}
 	sim := Simulator{
 		Devices:    make(map[uuid.UUID]model.Device),
+		Rules:      make(map[uuid.UUID][]model.Rule),
 		APIBaseURL: API_BASE_URL,
 		HTTPClient: http.Client{Timeout: 10 * time.Second},
 	}
@@ -85,7 +87,7 @@ func main() {
 }
 
 func (s *Simulator) DeviceSyncLoop(ctx context.Context) {
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	for {
 		select {
@@ -148,8 +150,29 @@ func (s *Simulator) syncDevices(ctx context.Context) error {
 		devicesByID[device.ID] = device
 	}
 
+	// Refresh rules for each device here (outside the lock, since these are HTTP calls),
+	// so the per-second reading loop never has to hit the API for rules.
+	s.mu.RLock()
+	previousRules := s.Rules
+	s.mu.RUnlock()
+
+	rulesByDevice := make(map[uuid.UUID][]model.Rule, len(devices))
+	for deviceID := range devicesByID {
+		rules, err := s.fetchDeviceRules(ctx, deviceID)
+		if err != nil {
+			// Keep last known rules for this device rather than dropping them
+			log.Printf("rule sync failed for device %s: %v", deviceID, err)
+			if old, ok := previousRules[deviceID]; ok {
+				rulesByDevice[deviceID] = old
+			}
+			continue
+		}
+		rulesByDevice[deviceID] = rules
+	}
+
 	s.mu.Lock()
 	s.Devices = devicesByID
+	s.Rules = rulesByDevice
 	s.mu.Unlock()
 
 	// No error: return nil
@@ -225,13 +248,30 @@ func (s *Simulator) SendReadings() {
 	}
 }
 
-// Get the specified device's rules from the server, so we can create readings that violate its rules
+// Look up the device's cached rules (populated by syncDevices). Returns an error if none are cached yet,
+// so callers fall back to default readings.
 func (s *Simulator) getDeviceRules(deviceID uuid.UUID) ([]model.Rule, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	rules, ok := s.Rules[deviceID]
+	if !ok {
+		return nil, fmt.Errorf("no cached rules for device %s", deviceID)
+	}
+	return rules, nil
+}
+
+// Get the specified device's rules from the server, so we can create readings that violate its rules
+func (s *Simulator) fetchDeviceRules(ctx context.Context, deviceID uuid.UUID) ([]model.Rule, error) {
 	// Create GET request. TrimRight removes trailing "/"
 	url := strings.TrimRight(s.APIBaseURL, "/") + "/api/devices/" + deviceID.String() + "/rules"
 
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	// Send GET request
-	response, err := s.HTTPClient.Get(url)
+	response, err := s.HTTPClient.Do(request)
 	if err != nil {
 		return nil, err
 	}
