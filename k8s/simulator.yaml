@@ -33,7 +33,7 @@ spec:
               cpu: "500m"      # Maximum allowed CPU (will throttle if exceeded)
               memory: "512Mi"  # Hard memory cap (will OOM-kill if exceeded)
           env:
-            - name: ENV API_BASE_URL # Define API base URL for simulator to send GET and POST requests to.
+            - name: API_BASE_URL # Define API base URL for simulator to send GET and POST requests to.
               value: http://api:8080
   
 # No service because Simulator is a client; does not expect any explicit inbound requests, only responses
