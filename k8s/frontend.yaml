@@ -39,7 +39,8 @@ spec:
               value: "api"
             - name: API_UPSTREAM_PORT
               value: "8080"
-            - name: PROXY_READ_
+            - name: PROXY_READ_TIMEOUT
+              value: 6000s
 
 ---
 
