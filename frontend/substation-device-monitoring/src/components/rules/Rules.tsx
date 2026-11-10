@@ -1,65 +1,45 @@
-import { createDeviceRule, updateDeviceRule, deleteDeviceRule, loadDeviceRules } from "../../api/rules";
-import {
-    RuleType, 
-    Measurement, 
-    Comparison, 
-    State } from "../../types/Types";
+import { createDeviceRule, updateDeviceRule, deleteDeviceRule } from "../../api/rules";
 import type { Device, Rule } from "../../types/Types";
-import { useState, useEffect } from "react";
-
+import { useState } from "react";
+import { useDeviceRules } from "../../hooks/useDeviceRules";
+import { useRuleDraft } from "../../hooks/useRuleDraft";
+import {
+    draftFromRule,
+    draftToCreateInput,
+    draftToUpdateInput,
+    emptyRuleDraft,
+    validateRule,
+} from "../validation/rule";
+import { RuleForm } from "./RuleForm";
 
 function DeviceRules( {device }: {device: Device}) {
-    const [ruleList, setRuleList] = useState<Rule[]>([])
-    const [ruleError, setRuleError] = useState<string | null>(null)
-
+    // Loading and list bookkeeping live in the hook.
+    const { rules, error, addRule, replaceRule, removeRule } = useDeviceRules(device.deviceId)
     const [showCreateRuleRow, setShowCreateRuleRow] = useState(false) // Define bool for showing creation row
-    
-    // Wrap async in useEffect, otherwise infinite loop because handleLoading calls setRules
-    // which triggers a re-render, which would cause handleLoading to call again.
-    useEffect(() =>  {
-        async function handleLoading() {
-            try {
-                const ruleList = await loadDeviceRules({deviceId: device.deviceId })
-                setRuleList(ruleList)
-                setRuleError(null)
-            } catch (error) {
-                setRuleError(error instanceof Error ? error.message : "Failed to load devices")
-            }
-        }
 
-        void handleLoading()
-    }, [setRuleList, setRuleError])
-    
-        return (
-            <div>
-                <RuleCreateButton setShowCreateRuleRow={setShowCreateRuleRow} />
-                <RuleRowHeader />
-                {showCreateRuleRow && ( // Conditionally render device creation row
-                    <RuleCreateRow
-                        deviceId={device.deviceId}
-                        // Append the device returned by the API via onCreated callback prop, then hide the create row
-                        onCreated={(rule) => {
-                            setRuleList((currentRules) => [...currentRules, rule]) // Append device to currentDevices
-                            setShowCreateRuleRow(false) //hide row via setter
-                        }}
-                        onCancel={() => setShowCreateRuleRow(false)} // On cancel, just hide row
-                    />
-                )}
-                <RuleList 
-                    rules={ruleList} 
-                    error={ruleError}
-                    onRuleUpdated={(updated) =>
-                    setRuleList((current) =>
-                        current.map((r) => (r.id === updated.id ? updated : r)),
-                    )}
-                    // Filter out deleted device on deletion while updating devices list
-                    onRuleDeleted={(deleted) => 
-                        setRuleList((current) => current.filter((r) => r.id !== deleted))
-                    }
+    // Return Div containing Rules for Device page.
+    return (
+        <div>
+            <RuleCreateButton setShowCreateRuleRow={setShowCreateRuleRow} />
+            <RuleRowHeader />
+            {showCreateRuleRow && ( // Conditionally render rule creation row
+                <RuleCreateRow
+                    deviceId={device.deviceId}
+                    onCreated={(rule) => {
+                        addRule(rule)
+                        setShowCreateRuleRow(false) //hide row via setter
+                    }}
+                    onCancel={() => setShowCreateRuleRow(false)} // On cancel, just hide row
                 />
-            </div>
-        )
-
+            )}
+            <RuleList
+                rules={rules}
+                error={error}
+                onRuleUpdated={replaceRule}
+                onRuleDeleted={removeRule}
+            />
+        </div>
+    )
 }
 
 function RuleList({
@@ -107,6 +87,7 @@ function RuleCreateButton({
     )
 }
 
+// Conditionally rendered row which handles rule creation.
 function RuleCreateRow({
     deviceId,
     onCreated,
@@ -116,55 +97,33 @@ function RuleCreateRow({
     onCreated: (rule: Rule) => void
     onCancel: () => void
 }) {
-    // Define own function states
-    const [name, setName] = useState("")
-    const [enabled, setEnabled] = useState(true)
-    const [ruleType, setRuleType] = useState<RuleType>("status")
-    const [measurement, setMeasurement] = useState<Measurement>("currentA")
-    const [comparison, setComparison] = useState<Comparison>("GT")
-    const [limit, setLimit] = useState("0")
-    const [lowerLimit, setLowerLimit] = useState("0")
-    const [upperLimit, setUpperLimit] = useState("0")
-    const [deadband, setDeadband] = useState("0")
-    const [tripState, setTripState] = useState<State>("open")
-
+    // Get hooks from useRuleDraft
+    const { draft, setField } = useRuleDraft(() => emptyRuleDraft)
     // Separate from page error, so a failed create only shows in this row instead of replacing the rule list.
     const [createError, setCreateError] = useState<string | null>(null)
     // Prevents double clicks from sending multiple POST requests.
     const [submitting, setSubmitting] = useState(false)
 
-    // Validation and submission async function
+    // For confirm button.
     async function handleConfirm() {
-        // Validate name. Just don't allow empty name: duplicate names are handled by backend.
-        // TODO: Validate all fields
-        if (name.trim() === "") {
-            setCreateError("Name is required")
+        // Validates the values inputted into forms
+        const validationError = validateRule(draft)
+        if (validationError !== null) {
+            setCreateError(validationError)
             return
         }
 
-        // Block multiple submits, and set error to null
         setSubmitting(true)
         setCreateError(null)
+        // Try to send request
         try {
-            const createdRule = await createDeviceRule({  // await creating device
-                deviceId: deviceId,
-                input: {
-                    name: name.trim(),
-                    enabled: enabled,
-                    type: ruleType,
-                    measurement: measurement,
-                    comparison: comparison,
-                    limit: Number(limit),
-                    lowerLimit: Number(lowerLimit),
-                    upperLimit: Number(upperLimit),
-                    deadband: Number(deadband),
-                    tripState: tripState
-                }
+            const createdRule = await createDeviceRule({
+                deviceId,
+                input: draftToCreateInput(draft),
             })
-            // If no error caught during rule creation, onCreated callback gets new rule
+            // The row is unmounted by the parent on success, so no need to reset submitting here.
             onCreated(createdRule)
-        } catch (error) { // Error caught, likely during rule creation.
-            // set CreateError to error message or fall back to default.
+        } catch (error) {
             setCreateError(
                 error instanceof Error ? error.message : "Failed to create rule",
             )
@@ -172,116 +131,11 @@ function RuleCreateRow({
         }
     }
 
+    // Return div with RuleForm and RuleCreateButtons.
     return (
         <div className="device-row device-create-row">
             <div className="device-info">
-                <label className="device-create-field">
-                    Name
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        placeholder="Rule name"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Enabled
-                    <select
-                        value={enabled ? "true" : "false"}
-                        onChange={(event) => setEnabled(event.target.value === "true")}
-                    >
-                        <option value="true">True</option>
-                        <option value="false">False</option>
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Type
-                    {/* Define selection based on constants defined in RuleType */}
-                    <select
-                        value={ruleType}
-                        onChange={(event) => setRuleType(event.target.value as RuleType)}
-                    >
-                        {Object.values(RuleType).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Trip State
-                    {/* Define selection based on options in State */}
-                    <select
-                        value={tripState}
-                        onChange={(event) => setTripState(event.target.value as State)}
-                    >
-                        {Object.values(State).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Measurement
-                    {/* Define selection based on options in Measurement */}
-                    <select
-                        value={measurement}
-                        onChange={(event) => setMeasurement(event.target.value as Measurement)}
-                    >
-                        {Object.values(Measurement).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Comparison
-                    {/* Define selection based on options in Comparison */}
-                    <select
-                        value={comparison}
-                        onChange={(event) => setComparison(event.target.value as Comparison)}
-                    >
-                        {Object.values(Comparison).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={limit}
-                        onChange={(event) => setLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Lower Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={lowerLimit}
-                        onChange={(event) => setLowerLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Upper Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={upperLimit}
-                        onChange={(event) => setUpperLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Deadband
-                    <input
-                        type="number"
-                        step="any"
-                        value={deadband}
-                        onChange={(event) => setDeadband(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
+                <RuleForm draft={draft} setField={setField} canEditType />
                 {createError !== null && (
                     <div className="device-create-error" role="alert">
                         {createError}
@@ -297,8 +151,9 @@ function RuleCreateRow({
         </div>
     )
 }
-// Represents one Rule
-function RuleRow({ 
+
+// Represents one Rule, either read-only or being edited.
+function RuleRow({
     rule,
     onUpdated,
     onDeleted,
@@ -307,114 +162,37 @@ function RuleRow({
     onUpdated: (rule: Rule) => void
     onDeleted: (ruleId: string) => void
 }) {
+    // Editing state
     const [editing, setEditing] = useState(false)
-    const [name, setName] = useState(rule.name)
-    const [enabled, setEnabled] = useState(rule.enabled)
-    const [ruleType] = useState<RuleType>(rule.type)
-    const [measurement, setMeasurement] = useState<Measurement>(rule.measurement)
-    const [comparison, setComparison] = useState<Comparison | undefined>(rule.comparison)
-    // Numeric inputs are kept as strings (matching the create row) and converted on validation/submit.
-    const [limit, setLimit] = useState(String(rule.limit ?? 0))
-    const [lowerLimit, setLowerLimit] = useState(String(rule.lowerLimit ?? 0))
-    const [upperLimit, setUpperLimit] = useState(String(rule.upperLimit ?? 0))
-    const [deadband, setDeadband] = useState(String(rule.deadband ?? 0))
-    const [tripState, setTripState] = useState<State | undefined>(rule.tripState)
+    // Draft for rule editing, resetable
+    const { draft, setField, reset } = useRuleDraft(() => draftFromRule(rule))
+    // Error states
     const [updateError, setUpdateError] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
+    // To prevent duplicates
     const [submitting, setSubmitting] = useState(false)
 
-    // Returns an error message if the edited rule is invalid, otherwise null.
-    // Required fields depend on rule type, mirroring the fields the backend evaluates.
-    function validateRule(): string | null {
-        // Just don't allow empty name: duplicate names are handled by backend.
-        if (name.trim() === "") {
-            return "Name is required"
-        }
-        if (!Object.values(RuleType).includes(ruleType)) {
-            return "Invalid rule type"
-        }
-        if (!Object.values(Measurement).includes(measurement)) {
-            return "Invalid measurement"
-        }
-
-        // Number("") is 0, so check for blank strings explicitly before converting.
-        const parse = (value: string) => (value.trim() === "" ? NaN : Number(value))
-        const deadbandNum = parse(deadband)
-        if (!Number.isFinite(deadbandNum) || deadbandNum < 0) {
-            return "Deadband must be a number that is 0 or greater"
-        }
-
-        switch (ruleType) {
-            case RuleType.Status:
-                // Status rules watch breaker state and only need a trip state.
-                if (measurement !== Measurement.BreakerStatus) {
-                    return "Status rules must use the breakerStatus measurement"
-                }
-                if (tripState === undefined || !Object.values(State).includes(tripState)) {
-                    return "Trip state is required for status rules"
-                }
-                break
-            case RuleType.Threshold:
-                if (measurement === Measurement.BreakerStatus) {
-                    return "Threshold rules cannot use the breakerStatus measurement"
-                }
-                if (comparison === undefined || !Object.values(Comparison).includes(comparison)) {
-                    return "Comparison is required for threshold rules"
-                }
-                if (!Number.isFinite(parse(limit))) {
-                    return "Limit must be a valid number"
-                }
-                break
-            case RuleType.Band: {
-                if (measurement === Measurement.BreakerStatus) {
-                    return "Band rules cannot use the breakerStatus measurement"
-                }
-                const lower = parse(lowerLimit)
-                const upper = parse(upperLimit)
-                if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
-                    return "Lower and upper limits must be valid numbers"
-                }
-                if (lower >= upper) {
-                    return "Lower limit must be less than upper limit"
-                }
-                break
-            }
-        }
-        return null
-    }
-
-    // Validation and submission async function
+    // For updates
     async function handleUpdate() {
-        const validationError = validateRule()
+        // Validate draft before submitting
+        const validationError = validateRule(draft)
         if (validationError !== null) {
             setUpdateError(validationError)
             return
         }
 
-        // Block multiple submits, and set error to null
         setSubmitting(true)
         setUpdateError(null)
+        // Try and update device data via API
         try {
-            // Update rule
             const editedRule = await updateDeviceRule({
                 deviceId: rule.deviceId,
                 ruleId: rule.id,
-                input: {
-                    name: name.trim(),
-                    enabled: enabled,
-                    measurement: measurement,
-                    comparison: comparison,
-                    limit: Number(limit),
-                    lowerLimit: Number(lowerLimit),
-                    upperLimit: Number(upperLimit),
-                    deadband: Number(deadband),
-                    tripState: tripState
-                }
+                input: draftToUpdateInput(draft),
             })
             onUpdated(editedRule) // Pass rule back via callback
             setEditing(false)
-        } catch (error) { // Error caught, likely during rule update.
-            // set UpdateError to error message or fall back to default.
+        } catch (error) {
             setUpdateError(
                 error instanceof Error ? error.message : "Failed to update rule",
             )
@@ -423,9 +201,11 @@ function RuleRow({
         }
     }
 
+    // For deleting
     async function handleDelete() {
         setSubmitting(true)
         setDeleteError(null)
+        // Try and deleted Rule via API
         try {
             await deleteDeviceRule({ deviceId: rule.deviceId, ruleId: rule.id })
             onDeleted(rule.id)
@@ -433,133 +213,28 @@ function RuleRow({
             setDeleteError(
                 error instanceof Error ? error.message : "Failed to delete rule",
             )
-        }
-        finally {
+        } finally {
             setSubmitting(false)
         }
     }
 
-   return editing ? (
+    // Return RuleForm with fields if editing, otherwise just presentational Rule row.
+    return editing ? (
         <div className="device-row">
             <div className="device-info">
-                <label className="device-create-field">
-                    Name
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        placeholder="Rule name"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Enabled
-                    <select
-                        value={enabled ? "true" : "false"}
-                        onChange={(event) => setEnabled(event.target.value === "true")}
-                    >
-                        <option value="true">True</option>
-                        <option value="false">False</option>
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Trip State
-                    {/* Define selection based on options in State */}
-                    <select
-                        value={tripState}
-                        onChange={(event) => setTripState(event.target.value as State)}
-                    >
-                        {Object.values(State).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Measurement
-                    {/* Define selection based on options in Measurement */}
-                    <select
-                        value={measurement}
-                        onChange={(event) => setMeasurement(event.target.value as Measurement)}
-                    >
-                        {Object.values(Measurement).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Comparison
-                    {/* Define selection based on options in Comparison */}
-                    <select
-                        value={comparison}
-                        onChange={(event) => setComparison(event.target.value as Comparison)}
-                    >
-                        {Object.values(Comparison).map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                    </select>
-                </label>
-                <label className="device-create-field">
-                    Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={limit}
-                        onChange={(event) => setLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Lower Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={lowerLimit}
-                        onChange={(event) => setLowerLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Upper Limit
-                    <input
-                        type="number"
-                        step="any"
-                        value={upperLimit}
-                        onChange={(event) => setUpperLimit(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
-                <label className="device-create-field">
-                    Deadband
-                    <input
-                        type="number"
-                        step="any"
-                        value={deadband}
-                        onChange={(event) => setDeadband(event.target.value)}
-                        placeholder="0"
-                    />
-                </label>
+                <RuleForm draft={draft} setField={setField} canEditType={false} />
+            </div>
+            {updateError !== null && (
+                <div className="device-create-error" role="alert">
+                    {updateError}
                 </div>
-                {updateError !== null && (
-                    <div className="device-create-error" role="alert">
-                        {updateError}
-                    </div>
-                )}
-            {/* RuleCreateButtons handle creating and cancelling. Disable buttons when submitting.*/}
+            )}
+            {/* RuleCreateButtons handle confirming and cancelling. Disable buttons when submitting.*/}
             <RuleCreateButtons
-                onConfirm={() => {
-                    void handleUpdate()
-                }}
-
+                onConfirm={() => void handleUpdate()}
                 onCancel={() => {
-                    // Reset all values. TODO: Is there better way to do this?
-                    setName(rule.name)
-                    setEnabled(rule.enabled)
-                    setTripState(rule.tripState)
-                    setMeasurement(rule.measurement)
-                    setComparison(rule.comparison)
-                    setLimit(String(rule.limit))
-                    setLowerLimit(String(rule.lowerLimit))
-                    setUpperLimit(String(rule.upperLimit))
-                    setDeadband(String(rule.deadband))
+                    reset() // Discard edits, restoring the values from `rule`
+                    setUpdateError(null)
                     setEditing(false)
                 }}
                 disabled={submitting}
@@ -571,11 +246,11 @@ function RuleRow({
             <RuleButtons
                 onEdit={() => setEditing(true)}
                 onDelete={() => void handleDelete()}/>
-                {deleteError !== null && (
-                    <div className="device-create-error" role="alert">
-                        {deleteError}
-                    </div>
-                )}
+            {deleteError !== null && (
+                <div className="device-create-error" role="alert">
+                    {deleteError}
+                </div>
+            )}
         </div>
     );
 }
@@ -602,6 +277,7 @@ function RuleRowHeader() {
 }
 
 // Displays the rule info.
+// TODO: Update this to iterate Rule fields
 function RuleInfo({ rule }: { rule: Rule }) {
     return (
     <div className="device-info">

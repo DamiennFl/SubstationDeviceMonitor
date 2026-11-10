@@ -1,7 +1,8 @@
 import { useParams } from "react-router-dom"
 import { getDevice, getDeviceAlarms, getDeviceReadings } from "../api/single_device"
 import { useState, useEffect } from "react"
-import type { Device, RuleSnapshot, AlarmWithAcknowledgement, Reading } from "../types/Types"
+import { usePolling } from "../hooks/usePolling"
+import type { Device, RuleSnapshot } from "../types/Types"
 import DeviceRules from "../components/rules/Rules"
 import "./devices.css"
 
@@ -78,32 +79,9 @@ function formatLimit(rule: RuleSnapshot): string {
 }
 
 function DeviceAlarms({device}: {device: Device}) {
-    const [alarmList, setAlarmList] = useState<AlarmWithAcknowledgement[] | null>(null)
-    const [alarmError, setAlarmError] = useState<string | null>(null)
-    
-    useEffect(() => {
-        if (!device.deviceId) return
-        let cancelled = false
-
-        async function loadDeviceAlarms() {
-            try {
-                const result = await getDeviceAlarms(device.deviceId) // 
-                if (!cancelled) {
-                    setAlarmList(result)
-                    setAlarmError(null) // Handle Alarm error in here, so it does not error the entire page.
-                }
-            } catch (error) {
-                if (!cancelled) setAlarmError(error instanceof Error ? error.message : "Failed to get device alarms")
-            }
-        }
-
-        void loadDeviceAlarms()
-        const intervalId = setInterval(() => loadDeviceAlarms(), 1000) // Pass function which calls loadDeviceAlarms()
-
-        return () => { 
-            cancelled = true
-            clearInterval(intervalId)} // Cleanup function. Will cancel setting device or error if effect runs again, like a new page for a different device.
-    }, [device.deviceId]) // Re-render if deviceId changes. Required to prevent infinite re-renders of page.
+    // Poll once a second. Errors are handled here so they don't error the entire page.
+    const { data: alarmList, error: alarmError } = usePolling(
+        () => getDeviceAlarms(device.deviceId), 1000, device.deviceId, "Failed to get device alarms")
 
     if (alarmList === null) {
         return alarmError
@@ -157,32 +135,8 @@ function DeviceAlarms({device}: {device: Device}) {
 }
 
 function DeviceReadings({device}: {device: Device}) {
-    const [readingList, setReadingList] = useState<Reading[] | null>(null)
-    const [readingError, setReadingError] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (!device.deviceId) return
-        let cancelled = false
-
-        async function loadDeviceReadings() {
-            try {
-                const result = await getDeviceReadings(device.deviceId) // 
-                if (!cancelled) {
-                    setReadingList(result)
-                    setReadingError(null) // Handle Alarm error in here, so it does not error the entire page.
-                }
-            } catch (error) {
-                if (!cancelled) setReadingError(error instanceof Error ? error.message : "Failed to get device readings")
-            }
-        }
-
-        void loadDeviceReadings()
-        const intervalId = setInterval(() => loadDeviceReadings(), 1000) // Pass function which calls loadDeviceAlarms()
-
-        return () => { 
-            cancelled = true
-            clearInterval(intervalId)} // Cleanup function. Will cancel setting device or error if effect runs again, like a new page for a different device.
-    }, [device.deviceId]) // Re-render if deviceId changes. Required to prevent infinite re-renders of page.
+    const { data: readingList, error: readingError } = usePolling(
+        () => getDeviceReadings(device.deviceId), 1000, device.deviceId, "Failed to get device readings")
 
     if (readingList === null) {
         return readingError && <div className="device-create-error">{readingError}</div>
@@ -218,7 +172,7 @@ function DeviceReadings({device}: {device: Device}) {
                     {!readingError &&
                     <tbody>
                         {readingList.map((reading) => (
-                            <tr className="alarm-row alarm-row--cleared">
+                            <tr key={reading.timestamp} className="alarm-row alarm-row--cleared">
                                 <td>{reading.breakerStatus}</td>
                                 <td>{reading.currentA}</td>
                                 <td>{reading.currentB}</td>
