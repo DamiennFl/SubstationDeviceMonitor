@@ -4,6 +4,7 @@ import HeaderBar from './HeaderBar'
 import SideBar from './SideBar'
 import Devices from '../../pages/Devices'
 import SingleDevice from '../../pages/SingleDevice'
+import Dashboard from '../../pages/Dashboard'
 import LiveEvents from '../../pages/LiveEvents'
 import { subToEventStream } from '../../api/live_events'
 import type { Event } from '../../types/EventTypes'
@@ -36,6 +37,7 @@ export function AppShell() {
             <SideBar />
             <div className={`app-shell${darkMode ? ' dark' : ''}`}>
                 <Routes>
+                    <Route path="/" element={<Dashboard events={events} />} />
                     {/* Route to Devices page when /devices is linked via a NavLink somewhere else. */}
                     <Route path="/devices" element={<Devices />} />
                     {/* :deviceId is read in SingleDevice via useParams. */}
