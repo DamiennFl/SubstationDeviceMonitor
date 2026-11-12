@@ -1,4 +1,5 @@
 import { createDeviceRule, updateDeviceRule, deleteDeviceRule } from "../../api/rules";
+import { useTempMessage } from "../../hooks/useTempMessage"
 import type { Device, Rule } from "../../types/Types";
 import { useState } from "react";
 import { useDeviceRules } from "../../hooks/useDeviceRules";
@@ -100,7 +101,7 @@ function RuleCreateRow({
     // Get hooks from useRuleDraft
     const { draft, setField } = useRuleDraft(() => emptyRuleDraft)
     // Separate from page error, so a failed create only shows in this row instead of replacing the rule list.
-    const [createError, setCreateError] = useState<string | null>(null)
+    const [createError, setCreateError] = useTempMessage()
     // Prevents double clicks from sending multiple POST requests.
     const [submitting, setSubmitting] = useState(false)
 
@@ -167,8 +168,8 @@ function RuleRow({
     // Draft for rule editing, resetable
     const { draft, setField, reset } = useRuleDraft(() => draftFromRule(rule))
     // Error states
-    const [updateError, setUpdateError] = useState<string | null>(null)
-    const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [updateError, setUpdateError] = useTempMessage()
+    const [deleteError, setDeleteError] = useTempMessage()
     // To prevent duplicates
     const [submitting, setSubmitting] = useState(false)
 

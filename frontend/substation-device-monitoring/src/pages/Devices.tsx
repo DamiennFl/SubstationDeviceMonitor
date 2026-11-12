@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import type { Device } from "../types/Types"
 import { DeviceType } from "../types/Types" // Not imported as type to reference value device value directly
 import { loadDevices, createDevice, updateDevice, deleteDevice } from "../api/devices"
+import { useTempMessage } from "../hooks/useTempMessage"
 import "./devices.css"
 
 // Main Page component for Device List, for clean page definition.
@@ -91,7 +92,7 @@ function DeviceCreateRow({
     const [name, setName] = useState("") // For name box form
     const [ip, setIp] = useState("") // For IP box form
     // Separate from page error, so a failed create only shows in this row instead of replacing the device list.
-    const [createError, setCreateError] = useState<string | null>(null)
+    const [createError, setCreateError] = useTempMessage()
     // Prevents double clicks from sending multiple POST requests.
     const [submitting, setSubmitting] = useState(false)
 
@@ -208,8 +209,8 @@ function DeviceRow({
     const [editing, setEditing] = useState(false)
     const [name, setName] = useState(device.name)
     const [ip, setIp] = useState(device.ip)
-    const [updateError, setUpdateError] = useState<string | null>(null)
-    const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [updateError, setUpdateError] = useTempMessage()
+    const [deleteError, setDeleteError] = useTempMessage()
     const [submitting, setSubmitting] = useState(false)
 
     // Validation and submission async function
